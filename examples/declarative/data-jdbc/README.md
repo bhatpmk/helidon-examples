@@ -1,7 +1,7 @@
 Helidon Data SE Declarative JDBC Example
 ----
 
-This example demonstrates the Helidon Data JDBC POC for an SE declarative application.
+This example demonstrates Helidon Data JDBC for an SE declarative application.
 It uses explicit SQL repository methods and does not depend on Jakarta Persistence or EclipseLink.
 
 The example uses two repository interfaces:
@@ -9,8 +9,8 @@ The example uses two repository interfaces:
 - `PokemonRepository`
 - `TypeRepository`
 
-> **NOTE:** This is a POC for the proposed `helidon-data-jdbc` module. Repository methods must use
-> `@Data.Query`; query-by-method-name and JPA entity mapping are intentionally not used.
+> **NOTE:** Repository methods must use `@Data.Query`; query-by-method-name and JPA entity mapping
+> are intentionally not used by this example.
 
 ## Start the Database
 
@@ -47,7 +47,8 @@ The application provides `http://localhost:8080/pokemon` endpoint.
 
 The following commands map each `PokemonRepository` method to the HTTP endpoint that invokes it.
 `TypeRepository.getByName(String name)` is used internally by the insert flow to resolve the supplied
-type name to a `TYPE.ID` value.
+type name to a `TYPE.ID` value. The insert flow is annotated with `@Tx.Required`, so the type lookup,
+insert, and final lookup run in one resource-local JDBC transaction.
 
 ### PokemonRepository.listOrderByName()
 
@@ -94,8 +95,9 @@ pokemonRepository.findByName("Meowth")
 
 ### PokemonRepository.insert(String name, int typeId)
 
-Inserts a pokemon row. The HTTP endpoint first calls `typeRepository.getByName("Fire")`
-to resolve the type id, then calls `pokemonRepository.insert("Charmander", type.id())`.
+Inserts a pokemon row. The HTTP endpoint delegates to a `@Tx.Required` method that first calls
+`typeRepository.getByName("Fire")` to resolve the type id, then calls
+`pokemonRepository.insert("Charmander", type.id())`.
 
 ```shell
 curl -i -X POST -H 'Content-type: application/json' -d '{"name":"Charmander","type":"Fire"}' http://localhost:8080/pokemon
@@ -104,6 +106,7 @@ curl -i -X POST -H 'Content-type: application/json' -d '{"name":"Charmander","ty
 This invokes:
 
 ```java
+@Tx.Required
 TypeRow type = typeRepository.getByName("Fire");
 pokemonRepository.insert("Charmander", type.id());
 pokemonRepository.getByName("Charmander");
@@ -152,6 +155,6 @@ This invokes:
 pokemonRepository.listWithInvalidSqlSyntax()
 ```
 
-The expected result is an HTTP `500 Internal Server Error`. This demonstrates that the JDBC POC generates
-the repository call and resource handling correctly, but SQL syntax validation is delegated to the database
-at execution time.
+The expected result is an HTTP `500 Internal Server Error`. This demonstrates that Helidon Data JDBC generates
+the repository call and resource handling correctly, but SQL syntax validation is delegated to the database at
+execution time.

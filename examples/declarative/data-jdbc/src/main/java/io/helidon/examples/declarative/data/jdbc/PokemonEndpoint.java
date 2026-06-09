@@ -25,6 +25,7 @@ import io.helidon.examples.declarative.data.jdbc.model.TypeRow;
 import io.helidon.examples.declarative.data.jdbc.model.TypeRepository;
 import io.helidon.http.Http;
 import io.helidon.service.registry.Service;
+import io.helidon.transaction.Tx;
 import io.helidon.webserver.http.RestServer;
 
 @SuppressWarnings(Api.SUPPRESS_INCUBATING) // Helidon declarative is an incubating feature
@@ -78,9 +79,9 @@ class PokemonEndpoint {
         return insertPokemon(pokemonDto);
     }
 
+    @Tx.Required
     PokemonDto insertPokemon(PokemonDto pokemonDto) {
-        // The JDBC POC intentionally keeps transaction handling out of scope.
-        // Each generated repository call obtains and closes its own JDBC connection.
+        // These repository calls share one resource-local JDBC transaction managed by Helidon Transactions.
         TypeRow type = typeRepository.getByName(pokemonDto.type());
         pokemonRepository.insert(pokemonDto.name(), type.id());
         return PokemonDto.create(pokemonRepository.getByName(pokemonDto.name()));
