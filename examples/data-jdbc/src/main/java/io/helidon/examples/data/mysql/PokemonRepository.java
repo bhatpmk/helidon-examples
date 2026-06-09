@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, 2026 Oracle and/or its affiliates.
+ * Copyright (c) 2025 Oracle and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.helidon.examples.declarative.data.model;
+package io.helidon.examples.data.mysql;
 
-import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import io.helidon.data.Data;
 
@@ -30,33 +30,28 @@ import io.helidon.data.Data;
  * @see Data.CrudRepository
  * @see Pokemon
  */
-
-// There is no @Data.Provider supplied here. The pom.xml puts helidon-data-jakarta-persistence-codegen on the annotation processor path,
-// so the Jakarta generator is the provider generating the implementation.
-// @Data.Provider absent -> Jakarta codegen defaults to its own provider "jakarta" -> generates PokemonRepository__Jpa -> runtime reads
-// data.persistence-units.jakarta -> creates Jakarta EntityManagerFactory backed by EclipseLink.
 @Data.Repository
 public interface PokemonRepository extends Data.CrudRepository<Pokemon, Integer> {
 
     /**
-     * Retrieves a list of {@link Pokemon} entities ordered by its {@code name}.
+     * Retrieves a stream of {@link Pokemon} entities ordered by its {@code name}.
      * <p>
-     * Query defined by method name: return list of {@link Pokemon} entities ordered by {@code name} property.
+     * Query defined by method name: return stream of {@link Pokemon} entities ordered by {@code name} property.
      *
-     * @return a list of {@link Pokemon} entities
+     * @return a stream of {@link Pokemon} entities
      */
-    List<Pokemon> listOrderByName();
+    Stream<Pokemon> streamOrderByName();
 
     /**
-     * Retrieves a list of {@link Pokemon} entities associated with a specific {@link Type} name.
+     * Retrieves a stream of {@link Pokemon} entities associated with a specific {@link Type} name.
      * <p>
-     * Query defined by method name: return unordered list of {@link Pokemon} entities with {@code type.name}
+     * Query defined by method name: return unordered stream of {@link Pokemon} entities with {@code type.name}
      * property matching the {@code typeName} method argument.
      *
      * @param typeName the name of the {@link Type}
-     * @return a list of {@link Pokemon} entities with the specified type name
+     * @return a stream of {@link Pokemon} entities with the specified type name
      */
-    List<Pokemon> listByType_Name(String typeName);
+    Stream<Pokemon> streamByType_Name(String typeName);
 
     /**
      * Retrieves a {@link Pokemon} entity by its name.
