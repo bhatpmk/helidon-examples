@@ -15,19 +15,16 @@
  */
 package io.helidon.examples.declarative.data.jdbc.model;
 
+import java.util.List;
+
 /**
- * JDBC projection of a joined pokemon and type row.
- * <p>
- * This is a database row shape, not a JPA entity. Repository methods define any SQL column label mappings
- * needed to instantiate this record without runtime reflection.
+ * Reduced type row with its pokemon children.
  *
- * @param id       pokemon identifier
- * @param name     pokemon name
- * @param typeId   type identifier
- * @param typeName type name
+ * @param id      type identifier
+ * @param name    type name
+ * @param pokemon pokemon rows for the type
  */
-public record PokemonRow(int id,
-                         String name,
-                         int typeId,
-                         String typeName) {
+public record TypeWithPokemon(int id,
+                              String name,
+                              List<PokemonSummary> pokemon) {
 }

@@ -15,13 +15,15 @@
  */
 package io.helidon.examples.declarative.data.jdbc.model;
 
+import java.util.List;
+
 import io.helidon.data.Data;
 
 /**
  * Explicit SQL repository for pokemon type lookup.
  */
 @Data.Repository
-public interface TypeRepository {
+public interface TypeRepository extends Data.GenericRepository<TypeRow, Integer> {
 
     /**
      * Reads a pokemon type by name.
@@ -31,5 +33,21 @@ public interface TypeRepository {
      */
     @Data.Query("SELECT ID AS id, NAME AS name FROM TYPE WHERE NAME = :name")
     TypeRow getByName(String name);
+
+    /**
+     * Lists pokemon types with their pokemon rows.
+     *
+     * @return reduced type aggregates
+     */
+    @Data.Query("""
+            SELECT t.ID AS "id",
+                   t.NAME AS "name",
+                   p.ID AS "pokemon.id",
+                   p.NAME AS "pokemon.name"
+            FROM TYPE t
+            LEFT JOIN POKEMON p ON p.TYPE_ID = t.ID
+            ORDER BY t.NAME, p.NAME
+            """)
+    List<TypeWithPokemon> listWithPokemon();
 
 }

@@ -27,52 +27,32 @@
         <relativePath/>
     </parent>
 
-    <groupId>io.helidon.examples.declarative</groupId>
-    <artifactId>helidon-examples-declarative-data-jdbc</artifactId>
+    <groupId>io.helidon.examples.imperative</groupId>
+    <artifactId>helidon-examples-imperative-data-jdbc</artifactId>
     <version>1.0.0-SNAPSHOT</version>
-    <name>Helidon Examples Declarative Data JDBC</name>
+    <name>Helidon Examples Imperative Data JDBC</name>
 
     <description>
-        The example shows how to use Helidon Data with JDBC in a Helidon SE Declarative application.
+        The example shows how to use the Helidon Data JDBC imperative API in a Helidon SE application.
     </description>
 
     <properties>
-        <mainClass>io.helidon.examples.declarative.data.jdbc.Main</mainClass>
+        <mainClass>io.helidon.examples.imperative.data.jdbc.Main</mainClass>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>io.helidon.config</groupId>
-            <artifactId>helidon-config-yaml</artifactId>
+            <artifactId>helidon-config</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.helidon.data</groupId>
-            <artifactId>helidon-data</artifactId>
+            <groupId>io.helidon.config</groupId>
+            <artifactId>helidon-config-yaml</artifactId>
         </dependency>
         <dependency>
             <groupId>io.helidon.data.jdbc</groupId>
             <artifactId>helidon-data-jdbc</artifactId>
             <version>${helidon.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.helidon.data.sql.datasource</groupId>
-            <artifactId>helidon-data-sql-datasource-hikari</artifactId>
-            <!--
-             Keep this dependency on the compile class path because the generated application binding
-             must see the data source service descriptor while composing the service registry.
-            -->
-        </dependency>
-        <dependency>
-            <groupId>io.helidon.transaction</groupId>
-            <artifactId>helidon-transaction</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.helidon.transaction</groupId>
-            <artifactId>helidon-transaction-jdbc</artifactId>
-            <!--
-             Keep this dependency on the compile class path because the generated application binding
-             must see JDBC transaction services while composing the service registry.
-            -->
         </dependency>
         <dependency>
             <groupId>io.helidon.webserver</groupId>
@@ -81,6 +61,14 @@
         <dependency>
             <groupId>io.helidon.http.media</groupId>
             <artifactId>helidon-http-media-json-binding</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.helidon.json</groupId>
+            <artifactId>helidon-json-binding</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
         </dependency>
         <dependency>
             <groupId>io.helidon.logging</groupId>
@@ -98,30 +86,28 @@
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <configuration>
-                    <annotationProcessorPaths>
-                        <path>
-                            <groupId>io.helidon.bundles</groupId>
-                            <artifactId>helidon-bundles-apt</artifactId>
-                            <version>${helidon.version}</version>
-                        </path>
-                        <path>
-                            <groupId>io.helidon.data.jdbc</groupId>
-                            <artifactId>helidon-data-jdbc-codegen</artifactId>
-                            <version>${helidon.version}</version>
-                        </path>
-                    </annotationProcessorPaths>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
                 <executions>
                     <execution>
                         <id>copy-libs</id>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <compilerArgs combine.children="append">
+                        <arg>-Ahelidon.api.preview=ignore</arg>
+                    </compilerArgs>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>io.helidon.bundles</groupId>
+                            <artifactId>helidon-bundles-apt</artifactId>
+                            <version>${helidon.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>io.helidon.service</groupId>
@@ -138,5 +124,4 @@
             </plugin>
         </plugins>
     </build>
-
 </project>

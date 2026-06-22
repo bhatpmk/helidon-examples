@@ -9,8 +9,14 @@ The example uses two repository interfaces:
 - `PokemonRepository`
 - `TypeRepository`
 
-> **NOTE:** Repository methods must use `@Data.Query`; query-by-method-name and JPA entity mapping
-> are intentionally not used by this example.
+The application puts the Helidon Data JDBC code generator on the annotation processor path, so these
+repositories do not need `@Data.Provider("jdbc")`. The application configures a single JDBC persistence unit under
+`data.persistence-units.jdbc` in `application.yaml`, so the generated repositories use it without a repository-level
+`@Data.PersistenceUnit` annotation. Repository methods use `@Data.Query`; query-by-method-name and JPA
+entity mapping are intentionally not used by this example. One joined query method uses
+`@Data.Map` to illustrate mapping a SQL column label to a record component, and the insert method uses
+`@Data.GeneratedKeys` to return the database-generated primary key. `TypeRepository.listWithPokemon()`
+uses quoted dotted SQL column labels to demonstrate automatic relationship reducer generation.
 
 ## Start the Database
 
@@ -26,6 +32,11 @@ docker run --name mysql \
        -e MYSQL_PASSWORD='changeit' \
        -d mysql
 ```
+
+The application runs `src/main/resources/init.sql` through the JDBC persistence unit `init-script`
+setting when it starts. This is intended for examples, tests, and simple bootstrap data. It is not a
+database migration facility; use a migration tool for production schema evolution. The script drops
+and recreates the sample tables on startup.
 
 ## Build and Run
 
@@ -48,7 +59,7 @@ The application provides `http://localhost:8080/pokemon` endpoint.
 The following commands map each `PokemonRepository` method to the HTTP endpoint that invokes it.
 `TypeRepository.getByName(String name)` is used internally by the insert flow to resolve the supplied
 type name to a `TYPE.ID` value. The insert flow is annotated with `@Tx.Required`, so the type lookup,
-insert, and final lookup run in one resource-local JDBC transaction.
+insert, and final lookup by generated id run in one resource-local JDBC transaction.
 
 ### PokemonRepository.listOrderByName()
 
@@ -93,11 +104,27 @@ This invokes:
 pokemonRepository.findByName("Meowth")
 ```
 
+### TypeRepository.listWithPokemon()
+
+Lists pokemon types with their pokemon rows. The SQL labels use paths such as `"pokemon.id"` and
+`"pokemon.name"`, so the JDBC code generator creates a relationship reducer automatically.
+
+```shell
+curl http://localhost:8080/pokemon/types
+```
+
+This invokes:
+
+```java
+typeRepository.listWithPokemon()
+```
+
 ### PokemonRepository.insert(String name, int typeId)
 
 Inserts a pokemon row. The HTTP endpoint delegates to a `@Tx.Required` method that first calls
 `typeRepository.getByName("Fire")` to resolve the type id, then calls
-`pokemonRepository.insert("Charmander", type.id())`.
+`pokemonRepository.insert("Charmander", type.id())`. The repository method is annotated with
+`@Data.GeneratedKeys("ID")`, so it returns the generated pokemon id.
 
 ```shell
 curl -i -X POST -H 'Content-type: application/json' -d '{"name":"Charmander","type":"Fire"}' http://localhost:8080/pokemon
@@ -108,21 +135,20 @@ This invokes:
 ```java
 @Tx.Required
 TypeRow type = typeRepository.getByName("Fire");
-pokemonRepository.insert("Charmander", type.id());
-pokemonRepository.getByName("Charmander");
+int id = pokemonRepository.insert("Charmander", type.id());
+pokemonRepository.getById(id);
 ```
 
-### PokemonRepository.getByName(String name)
+### PokemonRepository.getById(int id)
 
-Reads the inserted row back after the insert operation so the HTTP response can include the
-database-generated id.
+Reads the inserted row back by generated id after the insert operation.
 
 ```shell
 curl http://localhost:8080/pokemon/get/Charmander
 ```
 
 This direct curl uses `findByName`, because the sample exposes optional lookup as the public GET API.
-The `getByName` repository method itself is exercised by the POST command above.
+The `getById` repository method itself is exercised by the POST command above.
 
 ### PokemonRepository.deleteById(int id)
 

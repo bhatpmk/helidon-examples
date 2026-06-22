@@ -23,6 +23,7 @@ import io.helidon.common.media.type.MediaTypes;
 import io.helidon.examples.declarative.data.jdbc.model.PokemonRepository;
 import io.helidon.examples.declarative.data.jdbc.model.TypeRow;
 import io.helidon.examples.declarative.data.jdbc.model.TypeRepository;
+import io.helidon.examples.declarative.data.jdbc.model.TypeWithPokemon;
 import io.helidon.http.Http;
 import io.helidon.service.registry.Service;
 import io.helidon.transaction.Tx;
@@ -65,6 +66,13 @@ class PokemonEndpoint {
     }
 
     @Http.GET
+    @Http.Path("/types")
+    @Http.Produces(MediaTypes.APPLICATION_JSON_VALUE)
+    List<TypeWithPokemon> types() {
+        return typeRepository.listWithPokemon();
+    }
+
+    @Http.GET
     @Http.Path("/get/{name}")
     @Http.Produces(MediaTypes.APPLICATION_JSON_VALUE)
     Optional<PokemonDto> pokemon(@Http.PathParam("name") String name) {
@@ -83,8 +91,8 @@ class PokemonEndpoint {
     PokemonDto insertPokemon(PokemonDto pokemonDto) {
         // These repository calls share one resource-local JDBC transaction managed by Helidon Transactions.
         TypeRow type = typeRepository.getByName(pokemonDto.type());
-        pokemonRepository.insert(pokemonDto.name(), type.id());
-        return PokemonDto.create(pokemonRepository.getByName(pokemonDto.name()));
+        int id = pokemonRepository.insert(pokemonDto.name(), type.id());
+        return PokemonDto.create(pokemonRepository.getById(id));
     }
 
     @Http.DELETE

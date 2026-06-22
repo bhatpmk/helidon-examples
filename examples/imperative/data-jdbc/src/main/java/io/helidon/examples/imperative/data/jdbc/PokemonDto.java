@@ -13,21 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.helidon.examples.declarative.data.jdbc.model;
+package io.helidon.examples.imperative.data.jdbc;
+
+import java.util.Optional;
+
+import io.helidon.json.binding.Json;
 
 /**
- * JDBC projection of a joined pokemon and type row.
- * <p>
- * This is a database row shape, not a JPA entity. Repository methods define any SQL column label mappings
- * needed to instantiate this record without runtime reflection.
+ * HTTP representation of a pokemon row.
  *
- * @param id       pokemon identifier
- * @param name     pokemon name
- * @param typeId   type identifier
- * @param typeName type name
+ * @param id database identifier, absent when the client creates a new pokemon
+ * @param name pokemon name
+ * @param type pokemon type name
  */
-public record PokemonRow(int id,
+@Json.Entity
+public record PokemonDto(Optional<Integer> id,
                          String name,
-                         int typeId,
-                         String typeName) {
+                         String type) {
+
+    static PokemonDto create(PokemonRow pokemon) {
+        return new PokemonDto(Optional.of(pokemon.id()), pokemon.name(), pokemon.typeName());
+    }
 }

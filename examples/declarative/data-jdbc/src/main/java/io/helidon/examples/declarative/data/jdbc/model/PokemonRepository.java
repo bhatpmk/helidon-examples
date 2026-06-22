@@ -20,23 +20,17 @@ import java.util.Optional;
 
 import io.helidon.data.Data;
 
-/**
- * Explicit SQL repository used by the JDBC POC.
- * <p>
- * The interface intentionally does not extend {@link Data.CrudRepository}. The current POC supports
- * user-declared repository methods backed by {@link Data.Query}; it does not use JPA entity metadata or
- * query-by-method-name generation.
- */
 @Data.Repository
-public interface PokemonRepository {
+public interface PokemonRepository extends Data.GenericRepository<PokemonRow, Integer> {
 
     /**
      * Lists all pokemon rows ordered by name.
      *
      * @return ordered pokemon rows
      */
+    @Data.Map(value = "type_id", target = "typeId")
     @Data.Query("""
-            SELECT p.ID AS id, p.NAME AS name, t.ID AS typeId, t.NAME AS typeName
+            SELECT p.ID AS id, p.NAME AS name, t.ID AS type_id, t.NAME AS typeName
             FROM POKEMON p JOIN TYPE t ON t.ID = p.TYPE_ID
             ORDER BY p.NAME
             """)
@@ -70,27 +64,28 @@ public interface PokemonRepository {
     Optional<PokemonRow> findByName(String name);
 
     /**
-     * Reads one pokemon row by name.
+     * Reads one pokemon row by identifier.
      *
-     * @param name pokemon name
+     * @param id pokemon identifier
      * @return matching row
      */
     @Data.Query("""
             SELECT p.ID AS id, p.NAME AS name, t.ID AS typeId, t.NAME AS typeName
             FROM POKEMON p JOIN TYPE t ON t.ID = p.TYPE_ID
-            WHERE p.NAME = :name
+            WHERE p.ID = :id
             """)
-    PokemonRow getByName(String name);
+    PokemonRow getById(int id);
 
     /**
      * Inserts a pokemon row.
      *
      * @param name   pokemon name
      * @param typeId pokemon type identifier
-     * @return number of rows inserted
+     * @return generated pokemon identifier
      */
     @Data.Query("INSERT INTO POKEMON (NAME, TYPE_ID) VALUES (:name, :typeId)")
-    long insert(String name, int typeId);
+    @Data.GeneratedKeys("ID")
+    int insert(String name, int typeId);
 
     /**
      * Deletes a pokemon row by identifier.
@@ -104,7 +99,7 @@ public interface PokemonRepository {
     /**
      * Demonstrates how invalid user supplied SQL fails at runtime.
      * <p>
-     * The missing select list is intentional. The JDBC POC does not parse or validate SQL at
+     * The missing select list is intentional. Helidon Data JDBC does not parse or validate SQL at
      * build time; the database reports syntax errors when the generated repository method executes the statement.
      *
      * @return this method is expected to fail before returning rows

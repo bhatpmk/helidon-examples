@@ -46,6 +46,7 @@
         <module>dbclient</module>
         <module>graphql</module>
         <module>health</module>
+        <module>imperative</module>
         <module>inject</module>
         <module>logging</module>
         <module>media</module>
