@@ -15,12 +15,15 @@
  */
 package io.helidon.examples.declarative.data.jdbc.model;
 
+import io.helidon.json.binding.Json;
+
 /**
  * Reduced pokemon child row.
  *
  * @param id   pokemon identifier
  * @param name pokemon name
  */
+@Json.Entity
 public record PokemonSummary(int id,
                              String name) {
 }

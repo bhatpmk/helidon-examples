@@ -19,6 +19,9 @@ entity mapping are intentionally not used by this example. One joined query meth
 `@Data.Map` to illustrate mapping a SQL column label to a record component, and the insert method uses
 `@Data.GeneratedKeys` to return the database-generated primary key. `TypeRepository.listWithPokemon()`
 uses quoted dotted SQL column labels to demonstrate automatic relationship reducer generation.
+`PokemonRepository.listByTypeName(...)` uses `@Data.Param("typeName")` to demonstrate explicit named
+parameter binding that is independent of the Java parameter name, and `PokemonRepository.getById(...)`
+uses `@Data.Param(index = 1)` to demonstrate explicit positional binding.
 
 ## Start the Database
 
@@ -91,6 +94,18 @@ This invokes:
 pokemonRepository.listByTypeName("Normal")
 ```
 
+The repository method binds the Java argument explicitly:
+
+```java
+@Data.Query("""
+        SELECT p.ID AS id, p.NAME AS name, t.ID AS typeId, t.NAME AS typeName
+        FROM POKEMON p JOIN TYPE t ON t.ID = p.TYPE_ID
+        WHERE t.NAME = :typeName
+        ORDER BY p.NAME
+        """)
+List<PokemonRow> listByTypeName(@Data.Param("typeName") String requestedTypeName);
+```
+
 ### PokemonRepository.findByName(String name)
 
 Finds a pokemon row by name and returns an empty response body if no row is found.
@@ -151,6 +166,16 @@ curl http://localhost:8080/pokemon/get/Charmander
 
 This direct curl uses `findByName`, because the sample exposes optional lookup as the public GET API.
 The `getById` repository method itself is exercised by the POST command above.
+It uses explicit positional binding:
+
+```java
+@Data.Query("""
+        SELECT p.ID AS id, p.NAME AS name, t.ID AS typeId, t.NAME AS typeName
+        FROM POKEMON p JOIN TYPE t ON t.ID = p.TYPE_ID
+        WHERE p.ID = ?
+        """)
+PokemonRow getById(@Data.Param(index = 1) int pokemonId);
+```
 
 ### PokemonRepository.deleteById(int id)
 

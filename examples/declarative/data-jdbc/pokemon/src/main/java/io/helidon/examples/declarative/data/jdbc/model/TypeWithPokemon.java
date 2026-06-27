@@ -17,6 +17,8 @@ package io.helidon.examples.declarative.data.jdbc.model;
 
 import java.util.List;
 
+import io.helidon.json.binding.Json;
+
 /**
  * Reduced type row with its pokemon children.
  *
@@ -24,6 +26,7 @@ import java.util.List;
  * @param name    type name
  * @param pokemon pokemon rows for the type
  */
+@Json.Entity
 public record TypeWithPokemon(int id,
                               String name,
                               List<PokemonSummary> pokemon) {

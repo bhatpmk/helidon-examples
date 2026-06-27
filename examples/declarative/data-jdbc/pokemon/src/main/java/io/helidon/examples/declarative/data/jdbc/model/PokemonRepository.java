@@ -39,7 +39,7 @@ public interface PokemonRepository extends Data.GenericRepository<PokemonRow, In
     /**
      * Lists pokemon rows by type name.
      *
-     * @param typeName pokemon type name
+     * @param requestedTypeName pokemon type name
      * @return matching pokemon rows
      */
     @Data.Query("""
@@ -48,7 +48,7 @@ public interface PokemonRepository extends Data.GenericRepository<PokemonRow, In
             WHERE t.NAME = :typeName
             ORDER BY p.NAME
             """)
-    List<PokemonRow> listByTypeName(String typeName);
+    List<PokemonRow> listByTypeName(@Data.Param("typeName") String requestedTypeName);
 
     /**
      * Finds one pokemon row by name.
@@ -66,15 +66,15 @@ public interface PokemonRepository extends Data.GenericRepository<PokemonRow, In
     /**
      * Reads one pokemon row by identifier.
      *
-     * @param id pokemon identifier
+     * @param pokemonId pokemon identifier
      * @return matching row
      */
     @Data.Query("""
             SELECT p.ID AS id, p.NAME AS name, t.ID AS typeId, t.NAME AS typeName
             FROM POKEMON p JOIN TYPE t ON t.ID = p.TYPE_ID
-            WHERE p.ID = :id
+            WHERE p.ID = ?
             """)
-    PokemonRow getById(int id);
+    PokemonRow getById(@Data.Param(index = 1) int pokemonId);
 
     /**
      * Inserts a pokemon row.
