@@ -55,6 +55,10 @@
             <version>${helidon.version}</version>
         </dependency>
         <dependency>
+            <groupId>io.helidon.data.sql.datasource</groupId>
+            <artifactId>helidon-data-sql-datasource-hikari</artifactId>
+        </dependency>
+        <dependency>
             <groupId>io.helidon.webserver</groupId>
             <artifactId>helidon-webserver</artifactId>
         </dependency>
@@ -65,10 +69,6 @@
         <dependency>
             <groupId>io.helidon.json</groupId>
             <artifactId>helidon-json-binding</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.zaxxer</groupId>
-            <artifactId>HikariCP</artifactId>
         </dependency>
         <dependency>
             <groupId>io.helidon.logging</groupId>

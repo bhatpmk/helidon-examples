@@ -15,17 +15,6 @@
  */
 package io.helidon.examples.imperative.data.jdbc.mapping;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
-
-import javax.sql.DataSource;
-
-import com.zaxxer.hikari.HikariConfig;
-import com.zaxxer.hikari.HikariDataSource;
 import io.helidon.config.Config;
 import io.helidon.data.jdbc.JdbcClient;
 import io.helidon.http.media.MediaContext;
@@ -36,7 +25,10 @@ import io.helidon.webserver.WebServer;
 import io.helidon.webserver.http.HttpRouting;
 
 /**
- * The application main class.
+ * Entry point for the imperative mapping and reduction application.
+ * <p>
+ * The JDBC provider creates the named client from the configured persistence unit. The application then passes that
+ * public client to {@link ContactService}; no second JDBC execution layer or manual connection lifecycle is needed.
  */
 public final class Main {
 
@@ -55,14 +47,7 @@ public final class Main {
         LogConfig.configureRuntime();
 
         Config config = Services.get(Config.class);
-        HikariDataSource dataSource = dataSource(config);
-        Runtime.getRuntime().addShutdownHook(new Thread(dataSource::close));
-
-        config.get("data.init-script")
-                .asString()
-                .ifPresent(script -> runInitScript(dataSource, script));
-
-        ContactService contactService = new ContactService(JdbcClient.create(dataSource));
+        ContactService contactService = new ContactService(Services.getNamed(JdbcClient.class, "contacts"));
         WebServer server = WebServer.builder()
                 .config(config.get("server"))
                 .mediaContext(MediaContext.builder()
@@ -79,38 +64,4 @@ public final class Main {
         routing.register("/contacts", new ContactRoutes(contactService));
     }
 
-    private static HikariDataSource dataSource(Config config) {
-        Config hikari = config.get("data.sources.sql.0.provider.hikari");
-        HikariConfig hikariConfig = new HikariConfig();
-        hikariConfig.setUsername(hikari.get("username").asString().get());
-        hikariConfig.setPassword(hikari.get("password").asString().get());
-        hikariConfig.setJdbcUrl(hikari.get("url").asString().get());
-        hikariConfig.setDriverClassName(hikari.get("jdbc-driver-class-name").asString().get());
-        return new HikariDataSource(hikariConfig);
-    }
-
-    private static void runInitScript(DataSource dataSource, String script) {
-        try (InputStream stream = Main.class.getResourceAsStream("/" + script)) {
-            if (stream == null) {
-                throw new IllegalStateException("Classpath resource not found: " + script);
-            }
-            executeScript(dataSource, new String(stream.readAllBytes(), StandardCharsets.UTF_8));
-        } catch (IOException e) {
-            throw new IllegalStateException("Failed to read init script: " + script, e);
-        }
-    }
-
-    private static void executeScript(DataSource dataSource, String script) {
-        try (Connection connection = dataSource.getConnection();
-                Statement statement = connection.createStatement()) {
-            for (String sql : script.split(";")) {
-                String trimmed = sql.trim();
-                if (!trimmed.isEmpty()) {
-                    statement.execute(trimmed);
-                }
-            }
-        } catch (SQLException e) {
-            throw new IllegalStateException("Failed to execute init script.", e);
-        }
-    }
 }

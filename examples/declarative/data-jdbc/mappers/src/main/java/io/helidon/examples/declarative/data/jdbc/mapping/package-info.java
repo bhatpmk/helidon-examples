@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 /**
- * Declarative Helidon Data JDBC mapping and reducer example.
+ * Declarative Helidon Data JDBC mapping and reduction application.
+ * <p>
+ * The application contrasts generated record and mutable-bean mapping, an explicit per-row mapper, generated
+ * identity-based mutable graph reduction, and application-owned row reducers. One reducer builds an immutable graph
+ * using a composite child identity while Helidon retains ownership of all JDBC resources.
  */
 package io.helidon.examples.declarative.data.jdbc.mapping;

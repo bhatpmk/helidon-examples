@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 /**
- * Declarative Helidon Data JDBC example.
+ * Declarative Helidon Data JDBC Pokémon application.
+ * <p>
+ * Its repositories use generated scalar and record mappers for flat SQL results. No reducer is needed because joined
+ * Pokémon/type results contain one logical projection per physical database row.
  */
 package io.helidon.examples.declarative.data.jdbc;

@@ -42,6 +42,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>io.helidon.config</groupId>
             <artifactId>helidon-config-yaml</artifactId>
         </dependency>
@@ -57,10 +62,6 @@
         <dependency>
             <groupId>io.helidon.data.sql.datasource</groupId>
             <artifactId>helidon-data-sql-datasource-hikari</artifactId>
-            <!--
-             Keep this dependency on the compile class path because the generated application binding
-             must see the data source service descriptor while composing the service registry.
-            -->
         </dependency>
         <dependency>
             <groupId>io.helidon.transaction</groupId>
@@ -69,10 +70,7 @@
         <dependency>
             <groupId>io.helidon.transaction</groupId>
             <artifactId>helidon-transaction-jdbc</artifactId>
-            <!--
-             Keep this dependency on the compile class path because the generated application binding
-             must see JDBC transaction services while composing the service registry.
-            -->
+            <version>${helidon.version}</version>
         </dependency>
         <dependency>
             <groupId>io.helidon.webserver</groupId>

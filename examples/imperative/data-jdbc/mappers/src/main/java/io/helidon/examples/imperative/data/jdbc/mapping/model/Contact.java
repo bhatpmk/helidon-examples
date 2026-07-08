@@ -15,16 +15,12 @@
  */
 package io.helidon.examples.imperative.data.jdbc.mapping.model;
 
-import java.util.List;
-
 /**
- * Contact aggregate assembled from joined JDBC rows.
+ * Flat contact record used by scalar and optional queries.
  *
  * @param id contact identifier
  * @param name contact name
- * @param phones phone numbers
  */
 public record Contact(Long id,
-                      String name,
-                      List<Phone> phones) {
+                      String name) {
 }

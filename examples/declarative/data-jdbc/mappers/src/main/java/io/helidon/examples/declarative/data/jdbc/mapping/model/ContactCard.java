@@ -15,18 +15,21 @@
  */
 package io.helidon.examples.declarative.data.jdbc.mapping.model;
 
+import io.helidon.json.binding.Json;
+
 /**
- * Contact projection created through a declarative mapper contract.
+ * Aggregate contact projection constructed by generated JDBC mapping code.
  *
  * @param id             contact identifier
  * @param displayName    display name
- * @param primaryPhone   primary phone number
+ * @param firstPhone     first phone number in lexical order
  * @param phoneCount     number of phone rows
  * @param tagCount       number of tag rows
  */
+@Json.Entity
 public record ContactCard(Long id,
                           String displayName,
-                          String primaryPhone,
+                          String firstPhone,
                           long phoneCount,
                           long tagCount) {
 }

@@ -33,7 +33,7 @@
     <name>Helidon Examples Declarative Data JDBC Mappers</name>
 
     <description>
-        The example shows complex Helidon Data JDBC result mapping and relationship reducers.
+        The example shows generated mapping and reduction with Helidon Data JDBC.
     </description>
 
     <properties>
@@ -41,6 +41,11 @@
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>io.helidon.config</groupId>
             <artifactId>helidon-config-yaml</artifactId>
@@ -57,14 +62,6 @@
         <dependency>
             <groupId>io.helidon.data.sql.datasource</groupId>
             <artifactId>helidon-data-sql-datasource-hikari</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.helidon.transaction</groupId>
-            <artifactId>helidon-transaction</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.helidon.transaction</groupId>
-            <artifactId>helidon-transaction-jdbc</artifactId>
         </dependency>
         <dependency>
             <groupId>io.helidon.webserver</groupId>

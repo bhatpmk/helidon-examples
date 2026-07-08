@@ -15,13 +15,17 @@
  */
 package io.helidon.examples.imperative.data.jdbc.mapping;
 
+import io.helidon.http.Status;
 import io.helidon.webserver.http.HttpRules;
 import io.helidon.webserver.http.HttpService;
 import io.helidon.webserver.http.ServerRequest;
 import io.helidon.webserver.http.ServerResponse;
 
 /**
- * HTTP routes for the contact mapping sample.
+ * HTTP routes for the imperative mapping sample.
+ * <p>
+ * The route set mirrors the declarative mapper application. The service has already completed row mapping or
+ * reduction before a response is serialized; routes never access JDBC resources directly.
  */
 final class ContactRoutes implements HttpService {
 
@@ -33,29 +37,52 @@ final class ContactRoutes implements HttpService {
 
     @Override
     public void routing(HttpRules rules) {
-        rules.get("/automatic", this::automaticReducer)
-                .get("/explicit", this::explicitReducer)
-                .get("/cards", this::cards);
+        rules.get("/all", this::all)
+                .get("/get/{id}", this::get)
+                .get("/mapped/{id}", this::mapped)
+                .get("/names", this::names)
+                .get("/details", this::details)
+                .get("/cards", this::cards)
+                .get("/graphs", this::graphs)
+                .get("/immutable-graphs", this::immutableGraphs)
+                .get("/custom-reducer", this::customReducer);
     }
 
-    private void automaticReducer(ServerRequest req, ServerResponse res) {
-        res.send(contacts.listWithDottedLabels()
-                         .stream()
-                         .map(ContactDto::create)
-                         .toList());
+    private void all(ServerRequest req, ServerResponse res) {
+        res.send(contacts.listContacts());
     }
 
-    private void explicitReducer(ServerRequest req, ServerResponse res) {
-        res.send(contacts.listWithExplicitMapping()
-                         .stream()
-                         .map(ContactDto::create)
-                         .toList());
+    private void get(ServerRequest req, ServerResponse res) {
+        long id = Long.parseLong(req.path().pathParameters().get("id"));
+        contacts.findContact(id).ifPresentOrElse(res::send, () -> res.status(Status.NOT_FOUND_404).send());
+    }
+
+    private void mapped(ServerRequest req, ServerResponse res) {
+        long id = Long.parseLong(req.path().pathParameters().get("id"));
+        res.send(contacts.mappedContact(id));
+    }
+
+    private void names(ServerRequest req, ServerResponse res) {
+        res.send(contacts.listNames());
+    }
+
+    private void details(ServerRequest req, ServerResponse res) {
+        res.send(contacts.listDetails());
     }
 
     private void cards(ServerRequest req, ServerResponse res) {
-        res.send(contacts.listCards()
-                         .stream()
-                         .map(ContactCardDto::create)
-                         .toList());
+        res.send(contacts.listCards());
+    }
+
+    private void graphs(ServerRequest req, ServerResponse res) {
+        res.send(contacts.listGraphs());
+    }
+
+    private void immutableGraphs(ServerRequest req, ServerResponse res) {
+        res.send(contacts.listImmutableGraphs());
+    }
+
+    private void customReducer(ServerRequest req, ServerResponse res) {
+        res.send(contacts.listWithCustomReducer());
     }
 }

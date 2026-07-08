@@ -16,75 +16,170 @@
 package io.helidon.examples.declarative.data.jdbc.mapping.model;
 
 import java.util.List;
+import java.util.Optional;
 
 import io.helidon.data.Data;
 
 /**
- * Explicit SQL repository showing generated mappers and relationship reducers.
+ * Explicit SQL repository comparing the mapping and reduction paths provided by Helidon Data JDBC.
+ * <p>
+ * Scalar and record results need no annotation because their mapping shape is known at compile time.
+ * {@link Data.RowMapper} selects application code for one physical row. Repeated identity-bearing
+ * {@link Data.BeanMapper} declarations select a generated reducer for a mutable object graph. {@link Data.RowReducer}
+ * selects an application-owned result-set reducer when identity or construction rules are outside the generated
+ * graph contract. Every generated method calls the same public {@code JdbcClient} API available to imperative code.
  */
 @Data.Repository
-public interface ContactRepository extends Data.GenericRepository<Contact, Long> {
+@Data.Provider("jdbc")
+@Data.PersistenceUnit("contacts")
+public interface ContactRepository {
 
     /**
-     * Lists contacts using dotted SQL labels. The JDBC generator infers the reducer from paths such as
-     * {@code phones.id} and {@code phones.tags.id}.
+     * Lists contact records using labels that match the record component names.
      *
-     * @return contact aggregates
+     * @return contacts ordered by identifier
      */
     @Data.Query("""
-            SELECT c.ID    AS "id",
-                   c.NAME  AS "name",
-                   p.ID    AS "phones.id",
-                   p.TYPE  AS "phones.type",
-                   p.PHONE AS "phones.phone",
-                   t.ID    AS "phones.tags.id",
-                   t.NAME  AS "phones.tags.name"
-            FROM CONTACT c
-            LEFT JOIN PHONE p ON p.CONTACT_ID = c.ID
-            LEFT JOIN TAG t   ON t.PHONE_ID = p.ID
-            ORDER BY c.ID, p.ID, t.ID
+            SELECT ID AS id, NAME AS name
+            FROM CONTACT
+            ORDER BY ID
             """)
-    List<Contact> listWithAutomaticReducer();
+    List<Contact> listContacts();
 
     /**
-     * Lists contacts using non-path SQL aliases and an explicit reducer mapping contract.
+     * Finds one contact using generated optional-record mapping.
      *
-     * @return contact aggregates
+     * @param id contact identifier
+     * @return matching contact, or empty when no row exists
      */
     @Data.Query("""
-            SELECT c.ID    AS contact_key,
-                   c.NAME  AS contact_name,
-                   p.ID    AS phone_key,
-                   p.TYPE  AS phone_kind,
-                   p.PHONE AS phone_number,
-                   t.ID    AS tag_key,
-                   t.NAME  AS tag_name
-            FROM CONTACT c
-            LEFT JOIN PHONE p ON p.CONTACT_ID = c.ID
-            LEFT JOIN TAG t   ON t.PHONE_ID = p.ID
-            ORDER BY c.ID, p.ID, t.ID
+            SELECT ID AS id, NAME AS name
+            FROM CONTACT
+            WHERE ID = :id
             """)
-    @Data.ReduceWith(ContactGraphMapping.class)
-    List<Contact> listWithExplicitReducer();
+    Optional<Contact> findContact(long id);
 
     /**
-     * Lists summary cards using a declarative mapper contract.
+     * Finds one contact using an explicitly selected row mapper.
+     *
+     * @param id contact identifier
+     * @return matching contact, or {@code null} when no row exists
+     */
+    @Data.Query("SELECT ID AS id, NAME AS name FROM CONTACT WHERE ID = :id")
+    @Data.RowMapper(ContactNameMapper.class)
+    Contact mappedContact(long id);
+
+    /**
+     * Lists one selected scalar column.
+     *
+     * @return contact names ordered by identifier
+     */
+    @Data.Query("SELECT NAME FROM CONTACT ORDER BY ID")
+    List<String> listNames();
+
+    /**
+     * Lists detached flat rows from a three-table join.
+     * <p>
+     * Phone and tag identifiers are boxed because a left join can produce {@code NULL} child columns.
+     *
+     * @return joined contact detail rows
+     */
+    @Data.Query("""
+            SELECT c.ID    AS contactId,
+                   c.NAME  AS contactName,
+                   p.ID    AS phoneId,
+                   p.TYPE  AS phoneType,
+                   p.PHONE AS phoneNumber,
+                   t.ID    AS tagId,
+                   t.NAME  AS tagName
+            FROM CONTACT c
+            LEFT JOIN PHONE p ON p.CONTACT_ID = c.ID
+            LEFT JOIN TAG t ON t.PHONE_ID = p.ID
+            ORDER BY c.ID, p.ID, t.ID
+            """)
+    List<ContactDetail> listDetails();
+
+    /**
+     * Lists aggregate records whose SQL labels match the record component names.
      *
      * @return contact summary cards
      */
     @Data.Query("""
-            SELECT c.ID AS contact_id,
-                   c.NAME AS contact_display_name,
-                   MIN(p.PHONE) AS primary_phone,
-                   COUNT(DISTINCT p.ID) AS phone_count,
-                   COUNT(DISTINCT t.ID) AS tag_count
+            SELECT c.ID AS id,
+                   c.NAME AS displayName,
+                   MIN(p.PHONE) AS firstPhone,
+                   COUNT(DISTINCT p.ID) AS phoneCount,
+                   COUNT(DISTINCT t.ID) AS tagCount
             FROM CONTACT c
             LEFT JOIN PHONE p ON p.CONTACT_ID = c.ID
             LEFT JOIN TAG t ON t.PHONE_ID = p.ID
             GROUP BY c.ID, c.NAME
             ORDER BY c.ID
             """)
-    @Data.MapWith(ContactCardMapping.class)
     List<ContactCard> listCards();
 
+    /**
+     * Reduces a contact, phone, and tag join into identity-defined object graphs.
+     *
+     * @return contacts with deduplicated phones and tags
+     */
+    @Data.Query("""
+            SELECT c.ID AS "id",
+                   c.NAME AS "name",
+                   p.ID AS "phones.id",
+                   p.TYPE AS "phones.type",
+                   p.PHONE AS "phones.phone",
+                   t.ID AS "phones.tags.id",
+                   t.NAME AS "phones.tags.name"
+            FROM CONTACT c
+            LEFT JOIN PHONE p ON p.CONTACT_ID = c.ID
+            LEFT JOIN TAG t ON t.PHONE_ID = p.ID
+            ORDER BY c.ID, p.ID, t.ID
+            """)
+    @Data.BeanMapper(value = ContactGraph.class, identity = "id")
+    @Data.BeanMapper(value = PhoneGraph.class, prefix = "phones", identity = "id")
+    @Data.BeanMapper(value = TagGraph.class, prefix = "phones.tags", identity = "id")
+    List<ContactGraph> listGraphs();
+
+    /**
+     * Reduces the contact join into an immutable graph using application-defined composite phone identity.
+     * <p>
+     * The application reducer identifies a phone by its type and number, builds mutable state only while consuming the
+     * result set, and returns immutable records from {@code finish()}. This behavior cannot use generated graph
+     * reduction because the generated V27 path requires mutable beans and one scalar identity property per scope.
+     *
+     * @return immutable contacts with ordered, deduplicated phones and tags
+     */
+    @Data.Query("""
+            SELECT c.ID    AS contactId,
+                   c.NAME  AS contactName,
+                   p.ID    AS phoneId,
+                   p.TYPE  AS phoneType,
+                   p.PHONE AS phoneNumber,
+                   t.ID    AS tagId,
+                   t.NAME  AS tagName
+            FROM CONTACT c
+            LEFT JOIN PHONE p ON p.CONTACT_ID = c.ID
+            LEFT JOIN TAG t ON t.PHONE_ID = p.ID
+            ORDER BY c.ID, p.ID, t.ID
+            """)
+    @Data.RowReducer(ImmutableContactGraphReducer.class)
+    List<ImmutableContactGraph> listImmutableGraphs();
+
+    /**
+     * Applies a small application reducer to a query that intentionally repeats each contact row.
+     * <p>
+     * Unlike {@link #listImmutableGraphs()}, this method demonstrates only custom root deduplication. It keeps the
+     * example of the smallest useful {@link Data.RowReducer} beside the complete immutable graph reducer.
+     *
+     * @return deduplicated contacts in first-seen order
+     */
+    @Data.Query("""
+            SELECT ID AS id, NAME AS name FROM CONTACT
+            UNION ALL
+            SELECT ID AS id, NAME AS name FROM CONTACT
+            ORDER BY id
+            """)
+    @Data.RowReducer(ContactRowReducer.class)
+    List<Contact> listWithCustomReducer();
 }

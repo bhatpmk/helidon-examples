@@ -20,10 +20,12 @@ import java.util.List;
 import io.helidon.data.Data;
 
 /**
- * Explicit SQL repository for pokemon type lookup.
+ * Explicit SQL repository for pokemon type rows.
  */
 @Data.Repository
-public interface TypeRepository extends Data.GenericRepository<TypeRow, Integer> {
+@Data.Provider("jdbc")
+@Data.PersistenceUnit("pokemon")
+public interface TypeRepository {
 
     /**
      * Reads a pokemon type by name.
@@ -35,19 +37,10 @@ public interface TypeRepository extends Data.GenericRepository<TypeRow, Integer>
     TypeRow getByName(String name);
 
     /**
-     * Lists pokemon types with their pokemon rows.
+     * Lists pokemon types ordered by name.
      *
-     * @return reduced type aggregates
+     * @return ordered type rows
      */
-    @Data.Query("""
-            SELECT t.ID AS "id",
-                   t.NAME AS "name",
-                   p.ID AS "pokemon.id",
-                   p.NAME AS "pokemon.name"
-            FROM TYPE t
-            LEFT JOIN POKEMON p ON p.TYPE_ID = t.ID
-            ORDER BY t.NAME, p.NAME
-            """)
-    List<TypeWithPokemon> listWithPokemon();
-
+    @Data.Query("SELECT ID AS id, NAME AS name FROM TYPE ORDER BY NAME")
+    List<TypeRow> listOrderByName();
 }

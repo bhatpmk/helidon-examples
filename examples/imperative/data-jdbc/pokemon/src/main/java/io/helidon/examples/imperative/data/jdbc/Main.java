@@ -15,19 +15,7 @@
  */
 package io.helidon.examples.imperative.data.jdbc;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
-
-import javax.sql.DataSource;
-
-import com.zaxxer.hikari.HikariConfig;
-import com.zaxxer.hikari.HikariDataSource;
 import io.helidon.config.Config;
-import io.helidon.data.jdbc.JdbcClient;
 import io.helidon.http.media.MediaContext;
 import io.helidon.http.media.json.binding.JsonBindingSupport;
 import io.helidon.logging.common.LogConfig;
@@ -55,14 +43,7 @@ public final class Main {
         LogConfig.configureRuntime();
 
         Config config = Services.get(Config.class);
-        HikariDataSource dataSource = dataSource(config);
-        Runtime.getRuntime().addShutdownHook(new Thread(dataSource::close));
-
-        config.get("data.init-script")
-                .asString()
-                .ifPresent(script -> runInitScript(dataSource, script));
-
-        PokemonService pokemonService = new PokemonService(JdbcClient.create(dataSource));
+        PokemonService pokemonService = Services.get(PokemonService.class);
         WebServer server = WebServer.builder()
                 .config(config.get("server"))
                 .mediaContext(MediaContext.builder()
@@ -77,40 +58,5 @@ public final class Main {
 
     private static void routing(HttpRouting.Builder routing, PokemonService pokemonService) {
         routing.register("/pokemon", new PokemonRoutes(pokemonService));
-    }
-
-    private static HikariDataSource dataSource(Config config) {
-        Config hikari = config.get("data.sources.sql.0.provider.hikari");
-        HikariConfig hikariConfig = new HikariConfig();
-        hikariConfig.setUsername(hikari.get("username").asString().get());
-        hikariConfig.setPassword(hikari.get("password").asString().get());
-        hikariConfig.setJdbcUrl(hikari.get("url").asString().get());
-        hikariConfig.setDriverClassName(hikari.get("jdbc-driver-class-name").asString().get());
-        return new HikariDataSource(hikariConfig);
-    }
-
-    private static void runInitScript(DataSource dataSource, String script) {
-        try (InputStream stream = Main.class.getResourceAsStream("/" + script)) {
-            if (stream == null) {
-                throw new IllegalStateException("Classpath resource not found: " + script);
-            }
-            executeScript(dataSource, new String(stream.readAllBytes(), StandardCharsets.UTF_8));
-        } catch (IOException e) {
-            throw new IllegalStateException("Failed to read init script: " + script, e);
-        }
-    }
-
-    private static void executeScript(DataSource dataSource, String script) {
-        try (Connection connection = dataSource.getConnection();
-                Statement statement = connection.createStatement()) {
-            for (String sql : script.split(";")) {
-                String trimmed = sql.trim();
-                if (!trimmed.isEmpty()) {
-                    statement.execute(trimmed);
-                }
-            }
-        } catch (SQLException e) {
-            throw new IllegalStateException("Failed to execute init script.", e);
-        }
     }
 }

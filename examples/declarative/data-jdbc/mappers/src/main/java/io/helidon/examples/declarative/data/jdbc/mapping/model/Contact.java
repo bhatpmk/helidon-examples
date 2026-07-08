@@ -15,43 +15,15 @@
  */
 package io.helidon.examples.declarative.data.jdbc.mapping.model;
 
-import java.util.ArrayList;
-import java.util.List;
+import io.helidon.json.binding.Json;
 
 /**
- * Contact aggregate assembled from joined JDBC rows.
+ * Contact record constructed by generated JDBC mapping code.
+ *
+ * @param id contact identifier
+ * @param name contact name
  */
-public class Contact {
-
-    Long id;
-    String name;
-    List<Phone> phones = new ArrayList<>();
-
-    /**
-     * Contact identifier.
-     *
-     * @return contact identifier
-     */
-    public Long id() {
-        return id;
-    }
-
-    /**
-     * Contact name.
-     *
-     * @return contact name
-     */
-    public String name() {
-        return name;
-    }
-
-    /**
-     * Contact phone numbers.
-     *
-     * @return phone numbers
-     */
-    public List<Phone> phones() {
-        return phones;
-    }
-
+@Json.Entity
+public record Contact(Long id,
+                      String name) {
 }

@@ -16,14 +16,27 @@
 package io.helidon.examples.declarative.data.jdbc.mapping;
 
 import java.util.List;
+import java.util.Optional;
 
 import io.helidon.common.Api;
 import io.helidon.common.media.type.MediaTypes;
+import io.helidon.examples.declarative.data.jdbc.mapping.model.Contact;
+import io.helidon.examples.declarative.data.jdbc.mapping.model.ContactCard;
+import io.helidon.examples.declarative.data.jdbc.mapping.model.ContactDetail;
+import io.helidon.examples.declarative.data.jdbc.mapping.model.ContactGraph;
 import io.helidon.examples.declarative.data.jdbc.mapping.model.ContactRepository;
+import io.helidon.examples.declarative.data.jdbc.mapping.model.ImmutableContactGraph;
 import io.helidon.http.Http;
 import io.helidon.service.registry.Service;
 import io.helidon.webserver.http.RestServer;
 
+/**
+ * HTTP views of the mapping strategies declared by {@link ContactRepository}.
+ * <p>
+ * The endpoints expose flat record mapping, an explicit one-row mapper, generated mutable graph reduction, and an
+ * application reducer that creates an immutable graph with composite phone identity. The endpoint never receives a
+ * JDBC row or resource; all mapping and reduction finishes before a repository method returns.
+ */
 @SuppressWarnings(Api.SUPPRESS_INCUBATING) // Helidon declarative is an incubating feature
 @Http.Path("/contacts")
 @Service.Singleton
@@ -38,33 +51,65 @@ class ContactEndpoint {
     }
 
     @Http.GET
-    @Http.Path("/automatic")
+    @Http.Path("/all")
     @Http.Produces(MediaTypes.APPLICATION_JSON_VALUE)
-    List<ContactDto> automaticReducer() {
-        return contacts.listWithAutomaticReducer()
-                .stream()
-                .map(ContactDto::create)
-                .toList();
+    List<Contact> all() {
+        return contacts.listContacts();
     }
 
     @Http.GET
-    @Http.Path("/explicit")
+    @Http.Path("/get/{id}")
     @Http.Produces(MediaTypes.APPLICATION_JSON_VALUE)
-    List<ContactDto> explicitReducer() {
-        return contacts.listWithExplicitReducer()
-                .stream()
-                .map(ContactDto::create)
-                .toList();
+    Optional<Contact> get(@Http.PathParam("id") long id) {
+        return contacts.findContact(id);
+    }
+
+    @Http.GET
+    @Http.Path("/mapped/{id}")
+    @Http.Produces(MediaTypes.APPLICATION_JSON_VALUE)
+    Contact mapped(@Http.PathParam("id") long id) {
+        return contacts.mappedContact(id);
+    }
+
+    @Http.GET
+    @Http.Path("/names")
+    @Http.Produces(MediaTypes.APPLICATION_JSON_VALUE)
+    List<String> names() {
+        return contacts.listNames();
+    }
+
+    @Http.GET
+    @Http.Path("/details")
+    @Http.Produces(MediaTypes.APPLICATION_JSON_VALUE)
+    List<ContactDetail> details() {
+        return contacts.listDetails();
     }
 
     @Http.GET
     @Http.Path("/cards")
     @Http.Produces(MediaTypes.APPLICATION_JSON_VALUE)
-    List<ContactCardDto> cards() {
-        return contacts.listCards()
-                .stream()
-                .map(ContactCardDto::create)
-                .toList();
+    List<ContactCard> cards() {
+        return contacts.listCards();
     }
 
+    @Http.GET
+    @Http.Path("/graphs")
+    @Http.Produces(MediaTypes.APPLICATION_JSON_VALUE)
+    List<ContactGraph> graphs() {
+        return contacts.listGraphs();
+    }
+
+    @Http.GET
+    @Http.Path("/immutable-graphs")
+    @Http.Produces(MediaTypes.APPLICATION_JSON_VALUE)
+    List<ImmutableContactGraph> immutableGraphs() {
+        return contacts.listImmutableGraphs();
+    }
+
+    @Http.GET
+    @Http.Path("/custom-reducer")
+    @Http.Produces(MediaTypes.APPLICATION_JSON_VALUE)
+    List<Contact> customReducer() {
+        return contacts.listWithCustomReducer();
+    }
 }

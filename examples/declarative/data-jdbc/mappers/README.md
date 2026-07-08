@@ -1,30 +1,32 @@
 Helidon Data Declarative JDBC Mapping Example
 ----
 
-This example demonstrates complex result mapping using Helidon Data JDBC declarative API.
-It complements the simpler `../pokemon` example. The Pokemon example focuses on basic explicit SQL
-repositories, generated keys, transactions, and a simple automatic reducer. This example focuses on result
-mapping patterns customers commonly need when they join several tables.
+This example demonstrates the mapping supported by the current Helidon Data JDBC provider. A repository declares SQL
+with `@Data.Query`, and build-time code generation creates direct row-mapping calls for scalar values, Java records, and
+mutable beans. Runtime reflection is not used.
 
-The example uses a contacts schema:
+The example uses only the current mapper annotations. `@Data.BeanMapper` maps mutable beans, `@Data.RowMapper` selects
+an explicitly authored mapper, and repeated bean-mapper declarations describe a joined object graph. Older annotations
+such as `@Data.Mapper`, `@Data.Map`, `@Data.Key`, `@Data.MapWith`, and `@Data.ReduceWith` are not supported.
 
-- `CONTACT`
-- `PHONE`
-- `TAG`
+The repository demonstrates nine supported mapping forms:
 
-The application exposes one repository interface, `ContactRepository`, with three query styles:
+- a list of `Contact` records;
+- an optional `Contact` record;
+- a list of scalar contact names;
+- an explicitly selected `ContactNameMapper`;
+- flat `ContactDetail` records from a three-table left join;
+- aggregate `ContactCard` records;
+- an identity-defined mutable contact, phone, and tag graph;
+- an application-reduced immutable graph with composite phone identity;
+- an explicit application reducer that removes duplicate contact rows.
 
-- Automatic relationship reducer generation from dotted SQL labels such as `"phones.id"` and `"phones.tags.id"`.
-- Explicit relationship reducer generation with `@Data.ReduceWith` and a declarative `@Data.Mapper` contract.
-- Declarative row mapping with `@Data.MapWith` and a mapper contract for a summary projection.
-
-The application does not depend on Jakarta Persistence or EclipseLink. Repository methods use explicit SQL
-through `@Data.Query`, and Helidon generates the repository implementation, binders, mappers, and reducers at
-build time.
+SQL column labels match record component names. For example, `AS contactId` maps to the `contactId` component of
+`ContactDetail`. The generator uses these names to select the required columns and invoke the record constructor.
 
 ## Start the Database
 
-To run the application, start a MySQL database:
+Start a MySQL database for the example:
 
 ```shell
 docker run --name mysql-contacts \
@@ -36,88 +38,112 @@ docker run --name mysql-contacts \
        -d mysql
 ```
 
-The application runs `src/main/resources/init.sql` through the JDBC persistence unit `init-script`
-setting when it starts. This is intended for examples, tests, and simple bootstrap data. It is not a
-database migration facility; use a migration tool for production schema evolution.
+The JDBC persistence unit runs `src/main/resources/init.sql` when the application starts. The script recreates the
+example tables and data. It is example bootstrap logic, not a production database migration mechanism.
 
 ## Build and Run
 
-1. Build the application:
-
 ```shell
 mvn package
-```
-
-2. Run the application:
-
-```shell
 java -jar target/helidon-examples-declarative-data-jdbc-mappers.jar
 ```
 
-## Test Example
+## Generated Record Mapping
 
-The application provides `http://localhost:8080/contacts` endpoints.
-
-### Automatic Relationship Reducer
-
-This endpoint invokes `ContactRepository.listWithAutomaticReducer()`.
+List all contacts:
 
 ```shell
-curl http://localhost:8080/contacts/automatic
+curl http://localhost:8080/contacts/all
 ```
 
-The SQL aliases use dotted labels:
-
-```sql
-c.ID    AS "id",
-c.NAME  AS "name",
-p.ID    AS "phones.id",
-p.TYPE  AS "phones.type",
-p.PHONE AS "phones.phone",
-t.ID    AS "phones.tags.id",
-t.NAME  AS "phones.tags.name"
-```
-
-The JDBC code generator uses those labels and the Java model to assemble each `Contact` with its `Phone`
-children and each phone's `Tag` children.
-
-### Explicit Relationship Reducer
-
-This endpoint invokes `ContactRepository.listWithExplicitReducer()`.
+Find an optional contact. An unknown identifier returns `404 Not Found`:
 
 ```shell
-curl http://localhost:8080/contacts/explicit
+curl http://localhost:8080/contacts/get/1
 ```
 
-The SQL aliases do not use Java property paths. Instead, `ContactGraphMapping` declares the mapping:
+## Generated Scalar Mapping
+
+Return only contact names. The generated mapper reads the first selected column as `String`:
+
+```shell
+curl http://localhost:8080/contacts/names
+```
+
+## Explicit Row Mapper
+
+`mappedContact` selects `ContactNameMapper` with `@Data.RowMapper`. The generated repository constructs that mapper
+once and passes it to the public `JdbcClient` API.
+
+```shell
+curl http://localhost:8080/contacts/mapped/1
+```
+
+## Flat Join Mapping
+
+Return one `ContactDetail` per joined result row:
+
+```shell
+curl http://localhost:8080/contacts/details
+```
+
+The result deliberately remains flat. Repeated contact and phone values demonstrate the row shape returned by SQL.
+
+## Graph Reduction
+
+The graph endpoint reduces the same relationship into contacts with ordered, deduplicated phone and tag collections:
+
+```shell
+curl http://localhost:8080/contacts/graphs
+```
+
+The repository declares `@Data.BeanMapper` for the root and each collection path. Every declaration supplies a local
+identity property. The generated reducer uses the contact, phone, and tag identifiers to avoid duplicate objects. A
+null child identifier from an outer join does not create a child object.
+
+## Application Row Reducer
+
+The `/contacts/immutable-graphs` endpoint selects `ImmutableContactGraphReducer` with `@Data.RowReducer`. It consumes
+the same contact, phone, and tag relationship as the generated reducer, but it deliberately uses behavior outside the
+generated graph contract:
+
+- `ImmutableContactGraph`, `ImmutablePhoneGraph`, and `ImmutableTagGraph` are records;
+- a phone is identified within its contact by the composite `(type, phone number)` key;
+- mutable maps exist only inside one reducer invocation;
+- `finish()` creates immutable roots and nested lists;
+- duplicate rows, first-seen ordering, null outer-join children, and inconsistent projections are controlled by the
+  application reducer.
+
+```shell
+curl http://localhost:8080/contacts/immutable-graphs
+```
+
+The generated repository constructs a fresh reducer and calls only the public client terminal:
 
 ```java
-@Data.Mapper(target = Contact.class)
-@Data.Map(source = "contact_key", target = "id")
-@Data.Map(source = "contact_name", target = "name")
-@Data.Map(source = "phone_key", target = "phones.id")
-@Data.Map(source = "phone_kind", target = "phones.type")
-@Data.Map(source = "phone_number", target = "phones.phone")
-@Data.Map(source = "tag_key", target = "phones.tags.id")
-@Data.Map(source = "tag_name", target = "phones.tags.name")
-@Data.Key(source = "contact_key")
-@Data.Key(source = "phone_key", target = "phones")
-@Data.Key(source = "tag_key", target = "phones.tags")
-interface ContactGraphMapping {
-}
+return jdbcClient.create(SQL_LIST_IMMUTABLE_GRAPHS)
+        .reduce(new ImmutableContactGraphReducer());
 ```
 
-This is the preferred style when SQL aliases are database-oriented, when identities need to be explicit, or
-when automatic dotted-label mapping is not expressive enough.
+The reducer receives callback-scoped `JdbcClient.Row` values. It never receives or retains a JDBC `ResultSet`,
+statement, or connection.
 
-### Declarative Mapper Contract
+### Minimal Application Row Reducer
 
-This endpoint invokes `ContactRepository.listCards()`.
+The `/contacts/custom-reducer` endpoint uses `@Data.RowReducer(ContactRowReducer.class)`. Its SQL repeats every
+contact with `UNION ALL`, and the application reducer keeps the first row for each contact identifier in SQL order.
+This demonstrates application-controlled duplicate handling without exposing a JDBC `ResultSet`.
+
+```shell
+curl http://localhost:8080/contacts/custom-reducer
+```
+
+## Aggregate Record Mapping
+
+Return one aggregate `ContactCard` per contact:
 
 ```shell
 curl http://localhost:8080/contacts/cards
 ```
 
-The query returns one summary row per contact using aliases such as `contact_display_name`, `phone_count`,
-and `tag_count`. `ContactCardMapping` maps those aliases to the `ContactCard` record components. The
-application declares mapping intent, and Helidon generates the executable mapper.
+The SQL labels `id`, `displayName`, `firstPhone`, `phoneCount`, and `tagCount` match the record components exactly.

@@ -1,24 +1,40 @@
 Helidon Data Imperative JDBC Mapping Example
 ----
 
-This example demonstrates complex result mapping with the Helidon Data JDBC imperative API in an application. 
-It complements the simpler `../pokemon` example. The Pokemon example focuses
-on basic CRUD-style SQL and generated keys; this example focuses on joined rows and explicit mapping
-patterns customers commonly need.
+This application demonstrates the same mapping and reduction cases as the declarative `mappers` example, but every
+operation is written directly against the public `JdbcClient` API. There are no repository interfaces or generated
+repository classes.
 
-The example uses a contacts schema:
+The application demonstrates:
 
-- `CONTACT`
-- `PHONE`
-- `TAG`
+- scalar and flat contact record mapping;
+- `Optional<T>` and `one()` cardinality;
+- an explicit `JdbcClient.RowMapper<Contact>`;
+- scalar `map(String.class)` mapping;
+- one `ContactDetail` per physical left-join row;
+- aggregate `ContactCard` records;
+- result-set reduction into ordered contact/phone/tag graphs using scalar identities;
+- a full application reducer that builds immutable graph records and uses composite `(phone type, phone number)`
+  identity;
+- a small root-only reducer that removes duplicates from a deliberately repeated query.
 
-The application creates a `JdbcClient` from a configured Hikari `DataSource` and uses it directly.
-There are no repository interfaces and no generated mappers or reducers. The service code contains
-the row mappers and the reducer that assembles `Contact` aggregates with `Phone` and `Tag` children.
+The imperative chain has the same shape used by generated declarative repositories:
 
-## Start the Database
+```java
+jdbcClient.create(SQL)
+        .options(options)
+        .bind(1, value)
+        .map(MAPPER)
+        .list();
 
-To run the application, start a MySQL database:
+jdbcClient.create(JOIN_SQL)
+        .reduce(new ContactGraphReducer(false));
+```
+
+The mapper receives one callback-scoped `JdbcClient.Row`. The reducer receives every physical row and returns its
+logical result from `finish()`. Neither API exposes a `ResultSet`, `Statement`, or `Connection` to the application.
+
+## Start the database
 
 ```shell
 docker run --name mysql-contacts \
@@ -30,64 +46,30 @@ docker run --name mysql-contacts \
        -d mysql
 ```
 
-The application runs `src/main/resources/init.sql` when it starts. This is intended for examples,
-tests, and simple bootstrap data. It is not a database migration facility; use a migration tool for
-production schema evolution.
+The named `contacts` JDBC persistence unit runs `src/main/resources/init.sql` during provider startup.
 
-## Build and Run
-
-1. Build the application:
+## Build and run
 
 ```shell
 mvn package
-```
-
-2. Run the application:
-
-```shell
 java -jar target/helidon-examples-imperative-data-jdbc-mappers.jar
 ```
 
-## Test Example
-
-The application provides `http://localhost:8080/contacts` endpoints.
-
-### Dotted Label Mapping
+## Endpoints
 
 ```shell
-curl http://localhost:8080/contacts/automatic
-```
-
-The SQL aliases use dotted labels:
-
-```sql
-c.ID    AS "id",
-c.NAME  AS "name",
-p.ID    AS "phones.id",
-p.TYPE  AS "phones.type",
-p.PHONE AS "phones.phone",
-t.ID    AS "phones.tags.id",
-t.NAME  AS "phones.tags.name"
-```
-
-The imperative service maps those row labels explicitly and then groups rows into nested contact
-aggregates.
-
-### Explicit Alias Mapping
-
-```shell
-curl http://localhost:8080/contacts/explicit
-```
-
-This query uses database-oriented aliases such as `contact_key`, `phone_key`, and `tag_key`. The
-imperative service maps those aliases to the same reducer row shape and uses the key columns to
-deduplicate contacts, phones, and tags.
-
-### Contact Card Mapping
-
-```shell
+curl http://localhost:8080/contacts/all
+curl http://localhost:8080/contacts/get/1
+curl http://localhost:8080/contacts/mapped/1
+curl http://localhost:8080/contacts/names
+curl http://localhost:8080/contacts/details
 curl http://localhost:8080/contacts/cards
+curl http://localhost:8080/contacts/graphs
+curl http://localhost:8080/contacts/immutable-graphs
+curl http://localhost:8080/contacts/custom-reducer
 ```
 
-This query returns one summary row per contact using aliases such as `contact_display_name`,
-`phone_count`, and `tag_count`. The service maps each row directly to a `ContactCard` projection.
+`/contacts/graphs` uses the database phone identifier and tag identifier to reproduce the generated declarative graph
+semantics. `/contacts/immutable-graphs` uses application-defined composite phone identity and immutable output records.
+That second reducer is intentionally more flexible than generated V27 graph reduction. `/contacts/details` remains flat:
+repeated contact and phone values are not deduplicated.

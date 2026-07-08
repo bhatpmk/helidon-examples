@@ -15,142 +15,150 @@
  */
 package io.helidon.examples.imperative.data.jdbc;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import java.sql.JDBCType;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import io.helidon.data.jdbc.JdbcClient;
+import io.helidon.data.jdbc.JdbcExecutionOptions;
+import io.helidon.service.registry.Service;
+import io.helidon.transaction.Tx;
 
 /**
- * Pokemon data access implemented with the imperative JDBC API.
+ * Pokémon data access implemented with the current imperative JDBC API.
+ * <p>
+ * The methods mirror the declarative Pokémon repository: records are mapped with direct row-mapper lambdas, scalar
+ * counts use {@code map(long.class)}, reads use positional binds, DML uses {@code execute()}, and generated keys use
+ * {@code generatedKeys(...).one()}. Paging remains explicit MySQL SQL, and the typed VARCHAR bind demonstrates the
+ * imperative equivalent of declarative {@code @Data.JdbcType}.
  */
-final class PokemonService {
+@Service.Singleton
+class PokemonService {
+
+    private static final JdbcExecutionOptions OPTIONS = JdbcExecutionOptions.builder()
+            .fetchSize(32)
+            .build();
 
     private static final String POKEMON_SELECT = """
-            SELECT p.ID AS id, p.NAME AS name, t.ID AS typeId, t.NAME AS typeName
-            FROM POKEMON p JOIN TYPE t ON t.ID = p.TYPE_ID
+            SELECT p.ID AS id, p.NAME AS name, p.TYPE_ID AS typeId, t.NAME AS typeName
+            FROM POKEMON p
+            JOIN TYPE t ON t.ID = p.TYPE_ID
             """;
+
+    private static final JdbcClient.RowMapper<PokemonRow> POKEMON_MAPPER = row -> new PokemonRow(
+            row.required("id", Integer.class),
+            row.required("name", String.class),
+            row.required("typeId", Integer.class),
+            row.required("typeName", String.class));
+
+    private static final JdbcClient.RowMapper<TypeRow> TYPE_MAPPER = row -> new TypeRow(
+            row.required("id", Integer.class),
+            row.required("name", String.class));
 
     private final JdbcClient jdbcClient;
 
-    PokemonService(JdbcClient jdbcClient) {
+    @Service.Inject
+    PokemonService(@Service.Named("pokemon") JdbcClient jdbcClient) {
         this.jdbcClient = jdbcClient;
     }
 
     List<PokemonDto> listOrderByName() {
-        return jdbcClient.query(POKEMON_SELECT + " ORDER BY p.NAME")
-                .fetchSize(32)
-                .list(PokemonService::pokemonRow)
+        return jdbcClient.create(POKEMON_SELECT + " ORDER BY p.NAME")
+                .options(OPTIONS)
+                .map(POKEMON_MAPPER)
+                .list()
                 .stream()
                 .map(PokemonDto::create)
                 .toList();
     }
 
     List<PokemonDto> listByTypeName(String typeName) {
-        return jdbcClient.query(POKEMON_SELECT + " WHERE t.NAME = ? ORDER BY p.NAME")
-                .bind(1, typeName)
-                .list(PokemonService::pokemonRow)
+        return jdbcClient.create(POKEMON_SELECT + " WHERE t.NAME = ? ORDER BY p.NAME")
+                .bind(1, typeName, JDBCType.VARCHAR)
+                .map(POKEMON_MAPPER)
+                .list()
                 .stream()
                 .map(PokemonDto::create)
                 .toList();
     }
 
+    PokemonPageDto page(int page, int size) {
+        if (page < 0 || size < 1) {
+            throw new IllegalArgumentException("page must be non-negative and size must be positive");
+        }
+        int offset = Math.multiplyExact(page, size);
+        List<PokemonRow> rows = jdbcClient.create(POKEMON_SELECT + " ORDER BY p.ID LIMIT ? OFFSET ?")
+                .bind(1, size)
+                .bind(2, offset)
+                .map(POKEMON_MAPPER)
+                .list();
+        long total = count();
+        return PokemonPageDto.create(page, size, rows, Math.toIntExact(total));
+    }
+
+    List<PokemonDto> after(int id, int size) {
+        if (size < 1) {
+            throw new IllegalArgumentException("size must be positive");
+        }
+        return jdbcClient.create(POKEMON_SELECT + " WHERE p.ID > ? ORDER BY p.ID LIMIT ?")
+                .bind(1, id)
+                .bind(2, size)
+                .map(POKEMON_MAPPER)
+                .list()
+                .stream()
+                .map(PokemonDto::create)
+                .toList();
+    }
+
+    long count() {
+        return jdbcClient.create("SELECT COUNT(*) FROM POKEMON")
+                .map(long.class)
+                .one();
+    }
+
+    List<TypeRow> listTypes() {
+        return jdbcClient.create("SELECT ID AS id, NAME AS name FROM TYPE ORDER BY NAME")
+                .map(TYPE_MAPPER)
+                .list();
+    }
+
     Optional<PokemonDto> findByName(String name) {
-        return jdbcClient.query(POKEMON_SELECT + " WHERE p.NAME = ?")
+        return jdbcClient.create(POKEMON_SELECT + " WHERE p.NAME = ?")
                 .bind(1, name)
-                .optional(PokemonService::pokemonRow)
+                .map(POKEMON_MAPPER)
+                .optional()
                 .map(PokemonDto::create);
     }
 
+    @Tx.Required
     PokemonDto insert(PokemonDto pokemon) {
         TypeRow type = getTypeByName(pokemon.type());
-        int id = jdbcClient.update("INSERT INTO POKEMON (NAME, TYPE_ID) VALUES (?, ?)")
+        int id = jdbcClient.create("INSERT INTO POKEMON (NAME, TYPE_ID) VALUES (?, ?)")
                 .bind(1, pokemon.name())
                 .bind(2, type.id())
-                .generatedKey(row -> ((Number) row.get(1)).intValue(), "ID")
-                .orElseThrow();
+                .generatedKeys(row -> row.required(1, Integer.class), "ID")
+                .one();
         return PokemonDto.create(getById(id));
     }
 
+    @Tx.Required
     long deleteById(int id) {
-        return jdbcClient.update("DELETE FROM POKEMON WHERE ID = ?")
+        return jdbcClient.create("DELETE FROM POKEMON WHERE ID = ?")
                 .bind(1, id)
                 .execute();
     }
 
-    List<TypeWithPokemon> listTypesWithPokemon() {
-        List<TypePokemonRow> rows = jdbcClient.query("""
-                        SELECT t.ID AS id,
-                               t.NAME AS name,
-                               p.ID AS pokemonId,
-                               p.NAME AS pokemonName
-                        FROM TYPE t
-                        LEFT JOIN POKEMON p ON p.TYPE_ID = t.ID
-                        ORDER BY t.NAME, p.NAME
-                        """)
-                .list(PokemonService::typePokemonRow);
-
-        Map<Integer, TypeAccumulator> types = new LinkedHashMap<>();
-        for (TypePokemonRow row : rows) {
-            TypeAccumulator type = types.computeIfAbsent(row.id(), id -> new TypeAccumulator(id, row.name()));
-            if (row.pokemonId() != null) {
-                type.pokemon().add(new PokemonSummary(row.pokemonId(), row.pokemonName()));
-            }
-        }
-        return types.values()
-                .stream()
-                .map(TypeAccumulator::toTypeWithPokemon)
-                .toList();
-    }
-
-    List<PokemonDto> listWithInvalidSqlSyntax() {
-        return jdbcClient.query("SELECT FROM POKEMON")
-                .list(PokemonService::pokemonRow)
-                .stream()
-                .map(PokemonDto::create)
-                .toList();
-    }
-
     private TypeRow getTypeByName(String name) {
-        return jdbcClient.query("SELECT ID AS id, NAME AS name FROM TYPE WHERE NAME = ?")
+        return jdbcClient.create("SELECT ID AS id, NAME AS name FROM TYPE WHERE NAME = ?")
                 .bind(1, name)
-                .one(row -> new TypeRow(row.intValue("id"), row.string("name")));
+                .map(TYPE_MAPPER)
+                .one();
     }
 
     private PokemonRow getById(int id) {
-        return jdbcClient.query(POKEMON_SELECT + " WHERE p.ID = ?")
+        return jdbcClient.create(POKEMON_SELECT + " WHERE p.ID = ?")
                 .bind(1, id)
-                .one(PokemonService::pokemonRow);
-    }
-
-    private static PokemonRow pokemonRow(JdbcClient.Row row) {
-        return new PokemonRow(row.intValue("id"),
-                              row.string("name"),
-                              row.intValue("typeId"),
-                              row.string("typeName"));
-    }
-
-    private static TypePokemonRow typePokemonRow(JdbcClient.Row row) {
-        Number pokemonId = (Number) row.get("pokemonId");
-        return new TypePokemonRow(row.intValue("id"),
-                                  row.string("name"),
-                                  pokemonId == null ? null : pokemonId.intValue(),
-                                  row.string("pokemonName"));
-    }
-
-    private record TypePokemonRow(int id, String name, Integer pokemonId, String pokemonName) {
-    }
-
-    private record TypeAccumulator(int id, String name, List<PokemonSummary> pokemon) {
-
-        private TypeAccumulator(int id, String name) {
-            this(id, name, new ArrayList<>());
-        }
-
-        private TypeWithPokemon toTypeWithPokemon() {
-            return new TypeWithPokemon(id, name, List.copyOf(pokemon));
-        }
+                .map(POKEMON_MAPPER)
+                .one();
     }
 }

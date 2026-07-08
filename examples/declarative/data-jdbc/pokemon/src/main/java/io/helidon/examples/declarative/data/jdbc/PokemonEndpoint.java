@@ -20,10 +20,10 @@ import java.util.Optional;
 
 import io.helidon.common.Api;
 import io.helidon.common.media.type.MediaTypes;
+import io.helidon.data.DataException;
 import io.helidon.examples.declarative.data.jdbc.model.PokemonRepository;
-import io.helidon.examples.declarative.data.jdbc.model.TypeRow;
 import io.helidon.examples.declarative.data.jdbc.model.TypeRepository;
-import io.helidon.examples.declarative.data.jdbc.model.TypeWithPokemon;
+import io.helidon.examples.declarative.data.jdbc.model.TypeRow;
 import io.helidon.http.Http;
 import io.helidon.service.registry.Service;
 import io.helidon.transaction.Tx;
@@ -66,10 +66,39 @@ class PokemonEndpoint {
     }
 
     @Http.GET
+    @Http.Path("/page/{page}/{size}")
+    @Http.Produces(MediaTypes.APPLICATION_JSON_VALUE)
+    PokemonPageDto page(@Http.PathParam("page") int page,
+                        @Http.PathParam("size") int size) {
+        if (page < 0 || size < 1) {
+            throw new IllegalArgumentException("page must be non-negative and size must be positive");
+        }
+        int offset = Math.multiplyExact(page, size);
+        return PokemonPageDto.create(page,
+                                     size,
+                                     pokemonRepository.pageOrderById(size, offset),
+                                     Math.toIntExact(pokemonRepository.count()));
+    }
+
+    @Http.GET
+    @Http.Path("/after/{id}/{size}")
+    @Http.Produces(MediaTypes.APPLICATION_JSON_VALUE)
+    List<PokemonDto> after(@Http.PathParam("id") int id,
+                           @Http.PathParam("size") int size) {
+        if (size < 1) {
+            throw new IllegalArgumentException("size must be positive");
+        }
+        return pokemonRepository.sliceAfterId(id, size)
+                .stream()
+                .map(PokemonDto::create)
+                .toList();
+    }
+
+    @Http.GET
     @Http.Path("/types")
     @Http.Produces(MediaTypes.APPLICATION_JSON_VALUE)
-    List<TypeWithPokemon> types() {
-        return typeRepository.listWithPokemon();
+    List<TypeRow> types() {
+        return typeRepository.listOrderByName();
     }
 
     @Http.GET
@@ -83,34 +112,21 @@ class PokemonEndpoint {
     @Http.POST
     @Http.Consumes(MediaTypes.APPLICATION_JSON_VALUE)
     @Http.Produces(MediaTypes.APPLICATION_JSON_VALUE)
-    PokemonDto insert(@Http.Entity PokemonDto pokemonDto) {
-        return insertPokemon(pokemonDto);
-    }
-
     @Tx.Required
-    PokemonDto insertPokemon(PokemonDto pokemonDto) {
-        // These repository calls share one resource-local JDBC transaction managed by Helidon Transactions.
-        TypeRow type = typeRepository.getByName(pokemonDto.type());
-        int id = pokemonRepository.insert(pokemonDto.name(), type.id());
-        return PokemonDto.create(pokemonRepository.getById(id));
+    PokemonDto insert(@Http.Entity PokemonDto pokemon) {
+        TypeRow type = typeRepository.getByName(pokemon.type());
+        int generatedId = pokemonRepository.insertPokemon(pokemon.name(), type.id());
+        return pokemonRepository.findById(generatedId)
+                .map(PokemonDto::create)
+                .orElseThrow(() -> new DataException("Inserted pokemon row was not found: " + generatedId));
     }
 
     @Http.DELETE
     @Http.Path("/{id}")
     @Http.Produces(MediaTypes.TEXT_PLAIN_VALUE)
+    @Tx.Required
     String delete(@Http.PathParam("id") int id) {
-        return "Deleted: " + pokemonRepository.deleteById(id) + " values";
+        long count = pokemonRepository.deleteById(id);
+        return "Deleted rows: " + count;
     }
-
-    @Http.GET
-    @Http.Path("/failure/invalid-sql")
-    @Http.Produces(MediaTypes.APPLICATION_JSON_VALUE)
-    List<PokemonDto> invalidSqlSyntax() {
-        // This endpoint exists only to demonstrate failure propagation from invalid @Data.Query SQL.
-        return pokemonRepository.listWithInvalidSqlSyntax()
-                .stream()
-                .map(PokemonDto::create)
-                .toList();
-    }
-
 }

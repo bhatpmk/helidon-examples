@@ -36,5 +36,6 @@
     <modules>
         <module>pokemon</module>
         <module>mappers</module>
+        <module>streaming</module>
     </modules>
 </project>

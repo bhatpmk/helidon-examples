@@ -15,12 +15,15 @@
  */
 package io.helidon.examples.declarative.data.jdbc.model;
 
+import io.helidon.json.binding.Json;
+
 /**
  * JDBC projection of a pokemon type row.
  *
  * @param id   type identifier
  * @param name type name
  */
+@Json.Entity
 public record TypeRow(int id,
                       String name) {
 }

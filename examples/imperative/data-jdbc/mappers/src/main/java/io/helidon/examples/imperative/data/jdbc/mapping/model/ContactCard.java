@@ -20,13 +20,13 @@ package io.helidon.examples.imperative.data.jdbc.mapping.model;
  *
  * @param id contact identifier
  * @param displayName display name
- * @param primaryPhone primary phone number
+ * @param firstPhone first phone number in SQL order
  * @param phoneCount number of phone rows
  * @param tagCount number of tag rows
  */
 public record ContactCard(Long id,
                           String displayName,
-                          String primaryPhone,
+                          String firstPhone,
                           long phoneCount,
                           long tagCount) {
 }

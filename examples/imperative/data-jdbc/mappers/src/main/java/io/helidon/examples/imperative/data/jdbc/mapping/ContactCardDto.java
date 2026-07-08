@@ -23,21 +23,21 @@ import io.helidon.json.binding.Json;
  *
  * @param id contact identifier
  * @param displayName display name
- * @param primaryPhone primary phone number
+ * @param firstPhone first phone number in SQL order
  * @param phoneCount phone count
  * @param tagCount tag count
  */
 @Json.Entity
 public record ContactCardDto(Long id,
                              String displayName,
-                             String primaryPhone,
+                             String firstPhone,
                              long phoneCount,
                              long tagCount) {
 
     static ContactCardDto create(ContactCard card) {
         return new ContactCardDto(card.id(),
                                   card.displayName(),
-                                  card.primaryPhone(),
+                                  card.firstPhone(),
                                   card.phoneCount(),
                                   card.tagCount());
     }

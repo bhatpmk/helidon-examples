@@ -15,29 +15,20 @@
  */
 package io.helidon.examples.imperative.data.jdbc.mapping;
 
-import java.util.List;
-
 import io.helidon.examples.imperative.data.jdbc.mapping.model.Contact;
 import io.helidon.json.binding.Json;
 
 /**
- * HTTP representation of a contact aggregate.
+ * HTTP representation of a flat contact row.
  *
  * @param id contact identifier
  * @param name contact name
- * @param phones phone numbers
  */
 @Json.Entity
 public record ContactDto(Long id,
-                         String name,
-                         List<PhoneDto> phones) {
+                         String name) {
 
     static ContactDto create(Contact contact) {
-        return new ContactDto(contact.id(),
-                              contact.name(),
-                              contact.phones()
-                                      .stream()
-                                      .map(PhoneDto::create)
-                                      .toList());
+        return new ContactDto(contact.id(), contact.name());
     }
 }

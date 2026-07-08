@@ -28,4 +28,8 @@ data:
           password: "changeit"
           url: "${data.url}"
           jdbc-driver-class-name: "com.mysql.cj.jdbc.Driver"
-  init-script: "init.sql"
+  persistence-units:
+    jdbc:
+      - name: "contacts"
+        data-source: "contacts"
+        init-script: "init.sql"

@@ -20,7 +20,12 @@ import io.helidon.service.registry.Service;
 import io.helidon.service.registry.ServiceRegistryManager;
 
 /**
- * Entry point for the declarative JDBC data example.
+ * Entry point for the declarative JDBC Pokémon example.
+ * <p>
+ * Repository queries return scalar values and Java records, so the JDBC code generator emits direct record
+ * constructor mappers without mapper annotations or runtime reflection. Joined Pokémon/type rows remain flat records
+ * and therefore require no row reducer. The same generated repositories also demonstrate named binding, update
+ * counts, generated-key mapping, explicit database paging SQL, and local transaction participation.
  */
 @Service.GenerateBinding
 public class Main {

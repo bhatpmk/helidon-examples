@@ -22,7 +22,10 @@ import io.helidon.webserver.http.ServerRequest;
 import io.helidon.webserver.http.ServerResponse;
 
 /**
- * HTTP routes for the pokemon sample.
+ * HTTP routes for the imperative Pokémon sample.
+ *
+ * <p>The routes mirror the declarative example. The service behind them uses the same SQL and terminal shapes,
+ * but constructs the public {@code JdbcClient} chains directly.</p>
  */
 final class PokemonRoutes implements HttpService {
 
@@ -36,11 +39,12 @@ final class PokemonRoutes implements HttpService {
     public void routing(HttpRules rules) {
         rules.get("/all", this::list)
                 .get("/type/{name}", this::listByType)
+                .get("/page/{page}/{size}", this::page)
+                .get("/after/{id}/{size}", this::after)
                 .get("/types", this::listTypes)
                 .get("/get/{name}", this::findByName)
                 .post("/", this::insert)
-                .delete("/{id}", this::delete)
-                .get("/failure/invalid-sql", this::invalidSqlSyntax);
+                .delete("/{id}", this::delete);
     }
 
     private void list(ServerRequest req, ServerResponse res) {
@@ -52,8 +56,20 @@ final class PokemonRoutes implements HttpService {
         res.send(pokemonService.listByTypeName(typeName));
     }
 
+    private void page(ServerRequest req, ServerResponse res) {
+        int page = Integer.parseInt(req.path().pathParameters().get("page"));
+        int size = Integer.parseInt(req.path().pathParameters().get("size"));
+        res.send(pokemonService.page(page, size));
+    }
+
+    private void after(ServerRequest req, ServerResponse res) {
+        int id = Integer.parseInt(req.path().pathParameters().get("id"));
+        int size = Integer.parseInt(req.path().pathParameters().get("size"));
+        res.send(pokemonService.after(id, size));
+    }
+
     private void listTypes(ServerRequest req, ServerResponse res) {
-        res.send(pokemonService.listTypesWithPokemon());
+        res.send(pokemonService.listTypes());
     }
 
     private void findByName(ServerRequest req, ServerResponse res) {
@@ -72,7 +88,4 @@ final class PokemonRoutes implements HttpService {
         res.send("Deleted: " + count + " values");
     }
 
-    private void invalidSqlSyntax(ServerRequest req, ServerResponse res) {
-        res.send(pokemonService.listWithInvalidSqlSyntax());
-    }
 }

@@ -15,55 +15,61 @@
  */
 package io.helidon.examples.imperative.data.jdbc.mapping;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 
+import io.helidon.data.DataException;
 import io.helidon.data.jdbc.JdbcClient;
+import io.helidon.data.jdbc.JdbcExecutionOptions;
 import io.helidon.examples.imperative.data.jdbc.mapping.model.Contact;
 import io.helidon.examples.imperative.data.jdbc.mapping.model.ContactCard;
+import io.helidon.examples.imperative.data.jdbc.mapping.model.ContactDetail;
+import io.helidon.examples.imperative.data.jdbc.mapping.model.ContactGraph;
+import io.helidon.examples.imperative.data.jdbc.mapping.model.ContactNameMapper;
 import io.helidon.examples.imperative.data.jdbc.mapping.model.Phone;
 import io.helidon.examples.imperative.data.jdbc.mapping.model.Tag;
 
 /**
- * Contact data access implemented with the imperative JDBC API.
+ * Contact data access implemented with the current imperative {@link JdbcClient} API.
+ * <p>
+ * Each method mirrors one declarative mapper example. Record and scalar methods use direct row-mapper lambdas, the
+ * explicit-contact method uses {@link ContactNameMapper}, and the graph methods pass stateful reducers to
+ * {@link JdbcClient.Statement#reduce(JdbcClient.RowReducer)}. The first graph reducer uses one scalar identity per
+ * scope, matching generated declarative graph semantics. The second uses immutable records and a composite phone
+ * identity, which is intentionally an application-owned reduction rule.
  */
 final class ContactService {
 
-    private static final String DOTTED_LABEL_QUERY = """
-            SELECT c.ID    AS "id",
-                   c.NAME  AS "name",
-                   p.ID    AS "phones.id",
-                   p.TYPE  AS "phones.type",
-                   p.PHONE AS "phones.phone",
-                   t.ID    AS "phones.tags.id",
-                   t.NAME  AS "phones.tags.name"
+    private static final JdbcExecutionOptions OPTIONS = JdbcExecutionOptions.builder()
+            .fetchSize(32)
+            .build();
+
+    private static final String CONTACT_SELECT = "SELECT ID AS id, NAME AS name FROM CONTACT";
+
+    private static final String DETAILS_SQL = """
+            SELECT c.ID AS contactId,
+                   c.NAME AS contactName,
+                   p.ID AS phoneId,
+                   p.TYPE AS phoneType,
+                   p.PHONE AS phoneNumber,
+                   t.ID AS tagId,
+                   t.NAME AS tagName
             FROM CONTACT c
             LEFT JOIN PHONE p ON p.CONTACT_ID = c.ID
-            LEFT JOIN TAG t   ON t.PHONE_ID = p.ID
+            LEFT JOIN TAG t ON t.PHONE_ID = p.ID
             ORDER BY c.ID, p.ID, t.ID
             """;
 
-    private static final String EXPLICIT_LABEL_QUERY = """
-            SELECT c.ID    AS contact_key,
-                   c.NAME  AS contact_name,
-                   p.ID    AS phone_key,
-                   p.TYPE  AS phone_kind,
-                   p.PHONE AS phone_number,
-                   t.ID    AS tag_key,
-                   t.NAME  AS tag_name
-            FROM CONTACT c
-            LEFT JOIN PHONE p ON p.CONTACT_ID = c.ID
-            LEFT JOIN TAG t   ON t.PHONE_ID = p.ID
-            ORDER BY c.ID, p.ID, t.ID
-            """;
-
-    private static final String CARD_QUERY = """
-            SELECT c.ID AS contact_id,
-                   c.NAME AS contact_display_name,
-                   MIN(p.PHONE) AS primary_phone,
-                   COUNT(DISTINCT p.ID) AS phone_count,
-                   COUNT(DISTINCT t.ID) AS tag_count
+    private static final String CARDS_SQL = """
+            SELECT c.ID AS id,
+                   c.NAME AS displayName,
+                   MIN(p.PHONE) AS firstPhone,
+                   COUNT(DISTINCT p.ID) AS phoneCount,
+                   COUNT(DISTINCT t.ID) AS tagCount
             FROM CONTACT c
             LEFT JOIN PHONE p ON p.CONTACT_ID = c.ID
             LEFT JOIN TAG t ON t.PHONE_ID = p.ID
@@ -71,134 +77,248 @@ final class ContactService {
             ORDER BY c.ID
             """;
 
+    private static final String GRAPHS_SQL = """
+            SELECT c.ID AS "id",
+                   c.NAME AS "name",
+                   p.ID AS "phones.id",
+                   p.TYPE AS "phones.type",
+                   p.PHONE AS "phones.phone",
+                   t.ID AS "phones.tags.id",
+                   t.NAME AS "phones.tags.name"
+            FROM CONTACT c
+            LEFT JOIN PHONE p ON p.CONTACT_ID = c.ID
+            LEFT JOIN TAG t ON t.PHONE_ID = p.ID
+            ORDER BY c.ID, p.ID, t.ID
+            """;
+
+    private static final String IMMUTABLE_GRAPHS_SQL = """
+            SELECT c.ID AS contactId,
+                   c.NAME AS contactName,
+                   p.ID AS phoneId,
+                   p.TYPE AS phoneType,
+                   p.PHONE AS phoneNumber,
+                   t.ID AS tagId,
+                   t.NAME AS tagName
+            FROM CONTACT c
+            LEFT JOIN PHONE p ON p.CONTACT_ID = c.ID
+            LEFT JOIN TAG t ON t.PHONE_ID = p.ID
+            ORDER BY c.ID, p.ID, t.ID
+            """;
+
+    private static final JdbcClient.RowMapper<Contact> CONTACT_MAPPER = row -> new Contact(
+            row.required("id", Long.class),
+            row.get("name", String.class));
+
+    private static final JdbcClient.RowMapper<ContactDetail> DETAIL_MAPPER = row -> new ContactDetail(
+            row.required("contactId", Long.class),
+            row.get("contactName", String.class),
+            row.get("phoneId", Long.class),
+            row.get("phoneType", String.class),
+            row.get("phoneNumber", String.class),
+            row.get("tagId", Long.class),
+            row.get("tagName", String.class));
+
+    private static final JdbcClient.RowMapper<ContactCard> CARD_MAPPER = row -> new ContactCard(
+            row.required("id", Long.class),
+            row.get("displayName", String.class),
+            row.get("firstPhone", String.class),
+            row.required("phoneCount", Long.class),
+            row.required("tagCount", Long.class));
+
     private final JdbcClient jdbcClient;
 
     ContactService(JdbcClient jdbcClient) {
         this.jdbcClient = jdbcClient;
     }
 
-    List<Contact> listWithDottedLabels() {
-        return reduce(jdbcClient.query(DOTTED_LABEL_QUERY)
-                              .fetchSize(32)
-                              .list(ContactService::dottedRow));
+    List<Contact> listContacts() {
+        return jdbcClient.create(CONTACT_SELECT + " ORDER BY ID")
+                .options(OPTIONS)
+                .map(CONTACT_MAPPER)
+                .list();
     }
 
-    List<Contact> listWithExplicitMapping() {
-        return reduce(jdbcClient.query(EXPLICIT_LABEL_QUERY)
-                              .fetchSize(32)
-                              .list(ContactService::explicitRow));
+    Optional<Contact> findContact(long id) {
+        return jdbcClient.create(CONTACT_SELECT + " WHERE ID = ?")
+                .bind(1, id)
+                .map(CONTACT_MAPPER)
+                .optional();
+    }
+
+    Contact mappedContact(long id) {
+        return jdbcClient.create(CONTACT_SELECT + " WHERE ID = ?")
+                .bind(1, id)
+                .map(new ContactNameMapper())
+                .one();
+    }
+
+    List<String> listNames() {
+        return jdbcClient.create("SELECT NAME FROM CONTACT ORDER BY ID")
+                .options(OPTIONS)
+                .map(String.class)
+                .list();
+    }
+
+    List<ContactDetail> listDetails() {
+        return jdbcClient.create(DETAILS_SQL)
+                .options(OPTIONS)
+                .map(DETAIL_MAPPER)
+                .list();
     }
 
     List<ContactCard> listCards() {
-        return jdbcClient.query(CARD_QUERY)
-                .list(row -> new ContactCard(requiredLong(row, "contact_id"),
-                                             row.string("contact_display_name"),
-                                             row.string("primary_phone"),
-                                             requiredLong(row, "phone_count"),
-                                             requiredLong(row, "tag_count")));
+        return jdbcClient.create(CARDS_SQL)
+                .options(OPTIONS)
+                .map(CARD_MAPPER)
+                .list();
     }
 
-    private static ContactRow dottedRow(JdbcClient.Row row) {
-        return new ContactRow(requiredLong(row, "id"),
-                              row.string("name"),
-                              nullableLong(row, "phones.id"),
-                              row.string("phones.type"),
-                              row.string("phones.phone"),
-                              nullableLong(row, "phones.tags.id"),
-                              row.string("phones.tags.name"));
+    List<ContactGraph> listGraphs() {
+        return jdbcClient.create(GRAPHS_SQL)
+                .options(OPTIONS)
+                .reduce(new ContactGraphReducer(false));
     }
 
-    private static ContactRow explicitRow(JdbcClient.Row row) {
-        return new ContactRow(requiredLong(row, "contact_key"),
-                              row.string("contact_name"),
-                              nullableLong(row, "phone_key"),
-                              row.string("phone_kind"),
-                              row.string("phone_number"),
-                              nullableLong(row, "tag_key"),
-                              row.string("tag_name"));
+    List<ContactGraph> listImmutableGraphs() {
+        return jdbcClient.create(IMMUTABLE_GRAPHS_SQL)
+                .options(OPTIONS)
+                .reduce(new ContactGraphReducer(true));
     }
 
-    private static List<Contact> reduce(List<ContactRow> rows) {
-        Map<Long, ContactAccumulator> contacts = new LinkedHashMap<>();
-        for (ContactRow row : rows) {
-            ContactAccumulator contact = contacts.computeIfAbsent(row.contactId(),
-                                                                  id -> new ContactAccumulator(id, row.contactName()));
-            if (row.phoneId() != null) {
-                PhoneAccumulator phone = contact.phone(row.phoneId(), row.phoneType(), row.phoneNumber());
-                if (row.tagId() != null) {
-                    phone.addTag(row.tagId(), row.tagName());
+    List<Contact> listWithCustomReducer() {
+        return jdbcClient.create("""
+                               SELECT ID AS id, NAME AS name FROM CONTACT
+                               UNION ALL
+                               SELECT ID AS id, NAME AS name FROM CONTACT
+                               ORDER BY id
+                               """)
+                .reduce(new DuplicateContactReducer());
+    }
+
+    /**
+     * Reduces a join with one scalar identity for each object scope.
+     * <p>
+     * The boolean constructor flag selects whether the phone key is the database identifier or the application-defined
+     * composite of type and number. Both modes use the same provider-owned row lifecycle and public reducer contract.
+     */
+    private static final class ContactGraphReducer implements JdbcClient.RowReducer<List<ContactGraph>> {
+        private final boolean compositePhoneIdentity;
+        private final Map<Long, ContactState> contacts = new LinkedHashMap<>();
+
+        private ContactGraphReducer(boolean compositePhoneIdentity) {
+            this.compositePhoneIdentity = compositePhoneIdentity;
+        }
+
+        @Override
+        public void accept(JdbcClient.Row row) {
+            Long contactId = row.required("contactId", Long.class);
+            String contactName = row.get("contactName", String.class);
+            ContactState contact = contacts.get(contactId);
+            if (contact == null) {
+                contact = new ContactState(contactId, contactName);
+                contacts.put(contactId, contact);
+            } else if (!Objects.equals(contact.name, contactName)) {
+                throw new DataException("Conflicting projected contact name for one identity");
+            }
+
+            Long phoneId = row.get("phoneId", Long.class);
+            String phoneType = row.get("phoneType", String.class);
+            String phoneNumber = row.get("phoneNumber", String.class);
+            Long tagId = row.get("tagId", Long.class);
+            String tagName = row.get("tagName", String.class);
+            if (phoneId == null && phoneType == null && phoneNumber == null) {
+                if (tagId != null || tagName != null) {
+                    throw new DataException("Projected tag exists beneath an absent phone");
                 }
+                return;
+            }
+            if (phoneId == null || phoneType == null || phoneNumber == null) {
+                throw new DataException("Projected phone has an incomplete identity");
+            }
+
+            PhoneKey key = compositePhoneIdentity
+                    ? new PhoneKey(null, phoneType, phoneNumber)
+                    : new PhoneKey(phoneId, null, null);
+            PhoneState phone = contact.phones.get(key);
+            if (phone == null) {
+                phone = new PhoneState(phoneId, phoneType, phoneNumber);
+                contact.phones.put(key, phone);
+            } else if (!Objects.equals(phone.id, phoneId)
+                    || !Objects.equals(phone.type, phoneType)
+                    || !Objects.equals(phone.number, phoneNumber)) {
+                throw new DataException("Conflicting projected phone values for one identity");
+            }
+
+            if (tagId == null) {
+                if (tagName != null) {
+                    throw new DataException("Projected tag name exists without a tag identity");
+                }
+                return;
+            }
+            if (tagName == null) {
+                throw new DataException("Projected tag identity exists without a tag name");
+            }
+            Tag existing = phone.tags.get(tagId);
+            if (existing == null) {
+                phone.tags.put(tagId, new Tag(tagId, tagName));
+            } else if (!Objects.equals(existing.name(), tagName)) {
+                throw new DataException("Conflicting projected tag name for one identity");
             }
         }
-        return contacts.values()
-                .stream()
-                .map(ContactAccumulator::toContact)
-                .toList();
-    }
 
-    private static Long nullableLong(JdbcClient.Row row, String columnLabel) {
-        Object value = row.get(columnLabel);
-        if (value == null) {
-            return null;
+        @Override
+        public List<ContactGraph> finish() {
+            List<ContactGraph> result = new ArrayList<>(contacts.size());
+            for (ContactState contact : contacts.values()) {
+                List<Phone> phones = new ArrayList<>(contact.phones.size());
+                for (PhoneState phone : contact.phones.values()) {
+                    phones.add(new Phone(phone.id, phone.type, phone.number, List.copyOf(phone.tags.values())));
+                }
+                result.add(new ContactGraph(contact.id, contact.name, List.copyOf(phones)));
+            }
+            return List.copyOf(result);
         }
-        return ((Number) value).longValue();
     }
 
-    private static long requiredLong(JdbcClient.Row row, String columnLabel) {
-        return ((Number) row.get(columnLabel)).longValue();
+    private static final class DuplicateContactReducer implements JdbcClient.RowReducer<List<Contact>> {
+        private final Map<Long, Contact> contacts = new LinkedHashMap<>();
+
+        @Override
+        public void accept(JdbcClient.Row row) {
+            Long id = row.required("id", Long.class);
+            contacts.putIfAbsent(id, new Contact(id, row.get("name", String.class)));
+        }
+
+        @Override
+        public List<Contact> finish() {
+            return List.copyOf(contacts.values());
+        }
     }
 
-    private record ContactRow(Long contactId,
-                              String contactName,
-                              Long phoneId,
-                              String phoneType,
-                              String phoneNumber,
-                              Long tagId,
-                              String tagName) {
+    private record PhoneKey(Long id, String type, String number) {
     }
 
-    private static final class ContactAccumulator {
+    private static final class ContactState {
         private final Long id;
         private final String name;
-        private final Map<Long, PhoneAccumulator> phones = new LinkedHashMap<>();
+        private final Map<PhoneKey, PhoneState> phones = new LinkedHashMap<>();
 
-        private ContactAccumulator(Long id, String name) {
+        private ContactState(Long id, String name) {
             this.id = id;
             this.name = name;
         }
-
-        private PhoneAccumulator phone(Long id, String type, String phone) {
-            return phones.computeIfAbsent(id, ignored -> new PhoneAccumulator(id, type, phone));
-        }
-
-        private Contact toContact() {
-            return new Contact(id,
-                               name,
-                               phones.values()
-                                       .stream()
-                                       .map(PhoneAccumulator::toPhone)
-                                       .toList());
-        }
     }
 
-    private static final class PhoneAccumulator {
+    private static final class PhoneState {
         private final Long id;
         private final String type;
-        private final String phone;
+        private final String number;
         private final Map<Long, Tag> tags = new LinkedHashMap<>();
 
-        private PhoneAccumulator(Long id, String type, String phone) {
+        private PhoneState(Long id, String type, String number) {
             this.id = id;
             this.type = type;
-            this.phone = phone;
-        }
-
-        private void addTag(Long id, String name) {
-            tags.putIfAbsent(id, new Tag(id, name));
-        }
-
-        private Phone toPhone() {
-            return new Phone(id, type, phone, List.copyOf(tags.values()));
+            this.number = number;
         }
     }
 }
