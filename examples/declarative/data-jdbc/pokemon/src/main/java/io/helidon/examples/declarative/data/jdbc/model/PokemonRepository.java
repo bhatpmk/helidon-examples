@@ -27,7 +27,7 @@ import io.helidon.data.Data;
  * Every read method returns either a supported scalar or {@link PokemonRow}, whose record components match the SQL
  * column labels. Helidon therefore generates a direct row mapper and uses {@code one()}, {@code optional()}, or
  * {@code list()} according to the declared return type. The join produces one flat record per physical result row, so
- * neither {@link Data.BeanMapper} nor {@link Data.RowReducer} is needed.
+ * neither {@link Data.BeanMapping} nor {@link Data.RowReducer} is needed.
  */
 @Data.Repository
 @Data.Provider("jdbc")
@@ -81,7 +81,7 @@ public interface PokemonRepository {
     List<PokemonRow> sliceAfterId(int id, int size);
 
     /**
-     * Counts all pokemon rows.
+     * Counts all pokemon rows. Implicit scalar mapping, as query returns one JDBC scalar column
      *
      * @return total row count
      */

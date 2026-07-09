@@ -16,10 +16,10 @@ The repository declares a synchronous callback rather than returning a plain `St
 void withRows(long minimumId, Consumer<Iterable<OrderRow>> action);
 
 @Data.Query(SELECT_ORDERS)
-void forEach(long minimumId, Consumer<OrderRow> action);
+void visitOrders(long minimumId, Consumer<OrderRow> action);
 
 @Data.Query(SELECT_ORDERS)
-boolean forEachWhile(long minimumId, Predicate<OrderRow> action);
+boolean visitOrdersUntil(long minimumId, Predicate<OrderRow> action);
 ```
 
 `SELECT_ORDERS` above abbreviates the same SQL shown on `withRows`; the source repeats the annotation value because an
@@ -58,7 +58,9 @@ the callback uses `break`, returns early, or throws. Its iterable is single-use 
 retained. `forEach` and `forEachWhile` use the same internal cursor and cleanup path. `forEachWhile` returns `false`
 immediately when its predicate returns `false`, and returns `true` only after normal result-set exhaustion.
 
-`OrderEndpoint` consumes rows one at a time to calculate a bounded summary. It does not materialize all matching orders
+`OrderEndpoint` uses descriptive repository methods (`visitOrders` and `visitOrdersUntil`) that select the `forEach`
+and `forEachWhile` terminals from their callback signatures. It consumes rows one at a time to calculate a bounded summary.
+It does not materialize all matching orders
 in a list, and the endpoint receives only the completed `OrderSummary` after JDBC resources have closed.
 
 ## Build and Run

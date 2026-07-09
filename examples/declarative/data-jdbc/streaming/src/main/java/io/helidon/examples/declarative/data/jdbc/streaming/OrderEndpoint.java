@@ -54,7 +54,7 @@ class OrderEndpoint {
         SummaryAccumulator summary = new SummaryAccumulator(minimumId);
 
         // The generated repository keeps JDBC resources open only while this callback executes.
-        orders.withRows(minimumId, rows -> rows.forEach(summary::accept));
+        orders.withRows(minimumId, rows -> rows.forEach(order -> summary.accept(order)));
 
         // withRows has now closed the result set, statement, and logical connection handle.
         return summary.result(true);
@@ -69,11 +69,11 @@ class OrderEndpoint {
     @Http.GET
     @Http.Path("/for-each/{minimumId}")
     @Http.Produces(MediaTypes.APPLICATION_JSON_VALUE)
-    OrderSummary forEach(@Http.PathParam("minimumId") long minimumId) {
+    OrderSummary visitOrders(@Http.PathParam("minimumId") long minimumId) {
         SummaryAccumulator summary = new SummaryAccumulator(minimumId);
 
         // The callback receives one mapped row at a time; no result list is created.
-        orders.forEach(minimumId, summary::accept);
+        orders.visitOrders(minimumId, order -> summary.accept(order));
         return summary.result(true);
     }
 
@@ -87,14 +87,14 @@ class OrderEndpoint {
     @Http.GET
     @Http.Path("/for-each-while/{minimumId}/{rowLimit}")
     @Http.Produces(MediaTypes.APPLICATION_JSON_VALUE)
-    OrderSummary forEachWhile(@Http.PathParam("minimumId") long minimumId,
-                              @Http.PathParam("rowLimit") int rowLimit) {
+    OrderSummary visitOrdersUntil(@Http.PathParam("minimumId") long minimumId,
+                                   @Http.PathParam("rowLimit") int rowLimit) {
         if (rowLimit < 1) {
             throw new IllegalArgumentException("rowLimit must be greater than zero");
         }
 
         SummaryAccumulator summary = new SummaryAccumulator(minimumId);
-        boolean exhausted = orders.forEachWhile(minimumId, order -> {
+        boolean exhausted = orders.visitOrdersUntil(minimumId, order -> {
             summary.accept(order);
             return summary.orderCount < rowLimit;
         });

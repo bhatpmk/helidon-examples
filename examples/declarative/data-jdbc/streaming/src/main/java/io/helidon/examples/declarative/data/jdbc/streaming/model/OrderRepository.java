@@ -34,6 +34,45 @@ import io.helidon.data.Data;
 public interface OrderRepository {
 
     /**
+     * Visit every matching order while the provider owns the JDBC resources.
+     *
+     * @param minimumId first order identifier to include
+     * @param action    synchronous row consumer
+     */
+    @Data.Query("""
+            SELECT ID AS id,
+            CUSTOMER AS customer,
+            REGION AS region,
+            AMOUNT AS amount
+              FROM SALES_ORDER
+              WHERE ID >= :minimumId
+              ORDER BY ID
+            """)
+    void visitOrders(long minimumId, Consumer<OrderRow> action);
+
+    /**
+     * Visit matching orders until all rows are exhausted or the predicate returns {@code false}.
+     *
+     * Consume stops normally when the predicate returns false and
+     *   reports whether exhaustion was normal
+     *
+     * @param minimumId first order identifier to include
+     * @param action    synchronous continuation predicate
+     * @return {@code true} after normal exhaustion, or {@code false} after predicate-directed termination
+     */
+    @Data.Query("""
+            SELECT ID AS id,
+                   CUSTOMER AS customer,
+                   REGION AS region,
+                   AMOUNT AS amount
+            FROM SALES_ORDER
+            WHERE ID >= :minimumId
+            ORDER BY ID
+            """)
+    boolean visitOrdersUntil(long minimumId, Predicate<OrderRow> action);
+
+
+    /**
      * Consume matching orders while the provider owns the JDBC resources.
      * <p>
      * The callback must process the iterable synchronously and must not retain it after returning.
@@ -51,39 +90,4 @@ public interface OrderRepository {
             ORDER BY ID
             """)
     void withRows(long minimumId, Consumer<Iterable<OrderRow>> action);
-
-    /**
-     * Visit every matching order while the provider owns the JDBC resources.
-     *
-     * @param minimumId first order identifier to include
-     * @param action    synchronous row consumer
-     */
-    @Data.Query("""
-            SELECT ID AS id,
-                   CUSTOMER AS customer,
-                   REGION AS region,
-                   AMOUNT AS amount
-            FROM SALES_ORDER
-            WHERE ID >= :minimumId
-            ORDER BY ID
-            """)
-    void forEach(long minimumId, Consumer<OrderRow> action);
-
-    /**
-     * Visit matching orders until all rows are exhausted or the predicate returns {@code false}.
-     *
-     * @param minimumId first order identifier to include
-     * @param action    synchronous continuation predicate
-     * @return {@code true} after normal exhaustion, or {@code false} after predicate-directed termination
-     */
-    @Data.Query("""
-            SELECT ID AS id,
-                   CUSTOMER AS customer,
-                   REGION AS region,
-                   AMOUNT AS amount
-            FROM SALES_ORDER
-            WHERE ID >= :minimumId
-            ORDER BY ID
-            """)
-    boolean forEachWhile(long minimumId, Predicate<OrderRow> action);
 }

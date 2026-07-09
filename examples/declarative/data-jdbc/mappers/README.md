@@ -5,7 +5,8 @@ This example demonstrates the mapping supported by the current Helidon Data JDBC
 with `@Data.Query`, and build-time code generation creates direct row-mapping calls for scalar values, Java records, and
 mutable beans. Runtime reflection is not used.
 
-The example uses only the current mapper annotations. `@Data.BeanMapper` maps mutable beans, `@Data.RowMapper` selects
+The example uses only the current mapping annotations. `@Data.BeanMapping` declares generated mutable-bean mapping,
+while `@Data.RowMapper` selects
 an explicitly authored mapper, and repeated bean-mapper declarations describe a joined object graph. Older annotations
 such as `@Data.Mapper`, `@Data.Map`, `@Data.Key`, `@Data.MapWith`, and `@Data.ReduceWith` are not supported.
 
@@ -97,7 +98,7 @@ The graph endpoint reduces the same relationship into contacts with ordered, ded
 curl http://localhost:8080/contacts/graphs
 ```
 
-The repository declares `@Data.BeanMapper` for the root and each collection path. Every declaration supplies a local
+The repository declares `@Data.BeanMapping` for the root and each collection property path. Every declaration supplies a local
 identity property. The generated reducer uses the contact, phone, and tag identifiers to avoid duplicate objects. A
 null child identifier from an outer join does not create a child object.
 

@@ -23,7 +23,7 @@ import io.helidon.service.registry.ServiceRegistryManager;
  * Entry point for the declarative JDBC mapping and reduction example.
  * <p>
  * The application compares implicit scalar and record mapping, an explicit {@code @Data.RowMapper}, a generated
- * mutable graph selected by repeatable identity-bearing {@code @Data.BeanMapper} declarations, and application-owned
+ * mutable graph selected by repeatable identity-bearing {@code @Data.BeanMapping} declarations, and application-owned
  * {@code @Data.RowReducer} implementations. The full custom reducer demonstrates immutable graph construction and a
  * composite child identity. Generated repositories execute every path through the public {@code JdbcClient} API.
  */

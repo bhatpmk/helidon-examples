@@ -25,7 +25,7 @@ import io.helidon.data.Data;
  * <p>
  * Scalar and record results need no annotation because their mapping shape is known at compile time.
  * {@link Data.RowMapper} selects application code for one physical row. Repeated identity-bearing
- * {@link Data.BeanMapper} declarations select a generated reducer for a mutable object graph. {@link Data.RowReducer}
+ * {@link Data.BeanMapping} declarations select a generated reducer for a mutable object graph. {@link Data.RowReducer}
  * selects an application-owned result-set reducer when identity or construction rules are outside the generated
  * graph contract. Every generated method calls the same public {@code JdbcClient} API available to imperative code.
  */
@@ -35,7 +35,7 @@ import io.helidon.data.Data;
 public interface ContactRepository {
 
     /**
-     * Lists contact records using labels that match the record component names.
+     * Lists contact records using labels that match the record component names. // PABHAT: Record mapping
      *
      * @return contacts ordered by identifier
      */
@@ -47,7 +47,7 @@ public interface ContactRepository {
     List<Contact> listContacts();
 
     /**
-     * Finds one contact using generated optional-record mapping.
+     * Finds one contact using generated optional-record mapping. // PABHAT: Use of optional
      *
      * @param id contact identifier
      * @return matching contact, or empty when no row exists
@@ -60,7 +60,7 @@ public interface ContactRepository {
     Optional<Contact> findContact(long id);
 
     /**
-     * Finds one contact using an explicitly selected row mapper.
+     * Finds one contact using an explicitly selected row mapper. // PABHAT: uses `@Data.RowMapper` for one physical row
      *
      * @param id contact identifier
      * @return matching contact, or {@code null} when no row exists
@@ -70,7 +70,7 @@ public interface ContactRepository {
     Contact mappedContact(long id);
 
     /**
-     * Lists one selected scalar column.
+     * Lists one selected scalar column. // PABHAT: implicit scalar mapping
      *
      * @return contact names ordered by identifier
      */
@@ -78,7 +78,8 @@ public interface ContactRepository {
     List<String> listNames();
 
     /**
-     * Lists detached flat rows from a three-table join.
+     * Lists detached flat rows from a three-table join. // uses a flat `ContactDetail` record and preserves one
+     *   detached record per physical joined row.
      * <p>
      * Phone and tag identifiers are boxed because a left join can produce {@code NULL} child columns.
      *
@@ -100,7 +101,9 @@ public interface ContactRepository {
     List<ContactDetail> listDetails();
 
     /**
-     * Lists aggregate records whose SQL labels match the record component names.
+     * Lists aggregate records whose SQL labels match the record component names. // PABHAT: aggregate SQL and a `ContactCard` record; no
+     *   reducer is needed because `GROUP BY` creates one result row per card.
+     *
      *
      * @return contact summary cards
      */
@@ -119,7 +122,9 @@ public interface ContactRepository {
     List<ContactCard> listCards();
 
     /**
-     * Reduces a contact, phone, and tag join into identity-defined object graphs.
+     * Reduces a contact, phone, and tag join into identity-defined object graphs. // PABHAT: uses complete identity-bearing bean mappings and generated
+     *   graph reduction
+     *
      *
      * @return contacts with deduplicated phones and tags
      */
@@ -136,12 +141,14 @@ public interface ContactRepository {
             LEFT JOIN TAG t ON t.PHONE_ID = p.ID
             ORDER BY c.ID, p.ID, t.ID
             """)
-    @Data.BeanMapper(value = ContactGraph.class, identity = "id")
-    @Data.BeanMapper(value = PhoneGraph.class, prefix = "phones", identity = "id")
-    @Data.BeanMapper(value = TagGraph.class, prefix = "phones.tags", identity = "id")
+    @Data.BeanMapping(value = ContactGraph.class, identityProperty = "id")
+    @Data.BeanMapping(value = PhoneGraph.class, propertyPath = "phones", identityProperty = "id")
+    @Data.BeanMapping(value = TagGraph.class, propertyPath = "phones.tags", identityProperty = "id")
     List<ContactGraph> listGraphs();
 
     /**
+     * PABHAT: an explicit reducer for immutable records
+     *   and composite identity
      * Reduces the contact join into an immutable graph using application-defined composite phone identity.
      * <p>
      * The application reducer identifies a phone by its type and number, builds mutable state only while consuming the
@@ -167,6 +174,7 @@ public interface ContactRepository {
     List<ImmutableContactGraph> listImmutableGraphs();
 
     /**
+     * PABHAT: uses a reducer for repeated roots
      * Applies a small application reducer to a query that intentionally repeats each contact row.
      * <p>
      * Unlike {@link #listImmutableGraphs()}, this method demonstrates only custom root deduplication. It keeps the

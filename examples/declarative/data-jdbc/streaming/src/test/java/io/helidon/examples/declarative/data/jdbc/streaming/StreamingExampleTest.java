@@ -39,8 +39,8 @@ class StreamingExampleTest {
         String source = generatedRepository();
 
         assertTrue(source.contains(".map(MAPPER_WITH_ROWS).withRows(action)"), source);
-        assertTrue(source.contains(".map(MAPPER_FOR_EACH).forEach(action)"), source);
-        assertTrue(source.contains(".map(MAPPER_FOR_EACH_WHILE).forEachWhile(action)"), source);
+        assertTrue(source.contains(".map(MAPPER_VISIT_ORDERS).forEach(action)"), source);
+        assertTrue(source.contains(".map(MAPPER_VISIT_ORDERS_UNTIL).forEachWhile(action)"), source);
         assertTrue(source.contains("Consumer<Iterable<OrderRow>>"), source);
         assertTrue(source.contains("Predicate<OrderRow>"), source);
         assertFalse(source.contains("execute().params"), source);
@@ -69,7 +69,7 @@ class StreamingExampleTest {
 
     @Test
     void endpointUsesForEachToConsumeEveryRow() {
-        OrderSummary summary = new OrderEndpoint(recordingRepository()).forEach(10);
+        OrderSummary summary = new OrderEndpoint(recordingRepository()).visitOrders(10);
 
         assertEquals(3, summary.orderCount());
         assertEquals(10, summary.firstOrderId());
@@ -79,7 +79,7 @@ class StreamingExampleTest {
 
     @Test
     void endpointUsesForEachWhileForPredicateDirectedTermination() {
-        OrderSummary summary = new OrderEndpoint(recordingRepository()).forEachWhile(10, 2);
+        OrderSummary summary = new OrderEndpoint(recordingRepository()).visitOrdersUntil(10, 2);
 
         assertEquals(2, summary.orderCount());
         assertEquals(10, summary.firstOrderId());
@@ -89,7 +89,7 @@ class StreamingExampleTest {
 
     @Test
     void endpointReportsNormalExhaustionWhenLimitExceedsRows() {
-        OrderSummary summary = new OrderEndpoint(recordingRepository()).forEachWhile(12, 2);
+        OrderSummary summary = new OrderEndpoint(recordingRepository()).visitOrdersUntil(12, 2);
 
         assertEquals(1, summary.orderCount());
         assertEquals(12, summary.firstOrderId());
@@ -110,12 +110,12 @@ class StreamingExampleTest {
             }
 
             @Override
-            public void forEach(long minimumId, Consumer<OrderRow> action) {
+            public void visitOrders(long minimumId, Consumer<OrderRow> action) {
                 rows.stream().filter(row -> row.id() >= minimumId).forEach(action);
             }
 
             @Override
-            public boolean forEachWhile(long minimumId, Predicate<OrderRow> action) {
+            public boolean visitOrdersUntil(long minimumId, Predicate<OrderRow> action) {
                 for (OrderRow row : rows) {
                     if (row.id() >= minimumId && !action.test(row)) {
                         return false;
