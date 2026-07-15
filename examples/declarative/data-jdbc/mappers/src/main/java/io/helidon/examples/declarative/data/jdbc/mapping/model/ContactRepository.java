@@ -37,6 +37,11 @@ public interface ContactRepository {
     /**
      * Lists contact records using labels that match the record component names.
      *
+     * - implicit record mapping with terminal method list()
+     * - SQL labels id and name match the Contact record
+     * - generated code will call the canonical constructor
+     * - each row becomes one Contact
+     *
      * @return contacts ordered by identifier
      */
     @Data.Query("""
@@ -49,6 +54,9 @@ public interface ContactRepository {
     /**
      * Finds one contact using generated optional-record mapping.
      *
+     * Result shape is similar to listContacts, but with optional()
+     * - allows zero or one row
+     *
      * @param id contact identifier
      * @return matching contact, or empty when no row exists
      */
@@ -59,13 +67,22 @@ public interface ContactRepository {
             """)
     Optional<Contact> findContact(long id);
 
+
     /**
      * Finds one contact using an explicitly selected row mapper.
+     *
+     * - Explicit @Data.RowMapper with terminal operation one()
+     * - Application supplies the logic to construct the Contact
+     * - Useful when mapping requires custom conversion, validation, derived values
+     * - Missing row causes cardinality failure (not null) as the method expects one Contact
+     * - Does not reduce multiple rows
      *
      * @param id contact identifier
      * @return matching contact, or {@code null} when no row exists
      */
     @Data.Query("SELECT ID AS id, NAME AS name FROM CONTACT WHERE ID = :id")
+    // generated repository
+    // @Data.RowMapper()
     @Data.RowMapper(ContactNameMapper.class)
     Contact mappedContact(long id);
 
@@ -79,8 +96,11 @@ public interface ContactRepository {
 
     /**
      * Lists detached flat rows from a three-table join.
-     * <p>
+     *
      * Phone and tag identifiers are boxed because a left join can produce {@code NULL} child columns.
+     *
+     * - join produces one physical row for each contant/phone/tag combination
+     * - no deduplication or graph construction
      *
      * @return joined contact detail rows
      */
@@ -102,6 +122,8 @@ public interface ContactRepository {
     /**
      * Lists aggregate records whose SQL labels match the record component names.
      *
+     * - GROUP BY produces one row per ContactCard
+     * - No reducer required here
      *
      * @return contact summary cards
      */
@@ -122,7 +144,15 @@ public interface ContactRepository {
     /**
      * Reduces a contact, phone, and tag join into identity-defined object graphs.
      *
+     * - Generated graph reductions from complete @Data.Mapping
+     * - join returns repeated contact/phone/tag data
+     * - root and collection scope declare aliases and identities
+     * - generated reducer deduplicates objects with their parent, skips null order outer-join
      *
+     *  // "id"
+     *  need class name and identity
+     *    with optional propertyPath
+     *  // BeanMapping change it
      * @return contacts with deduplicated phones and tags
      */
     @Data.Query("""
@@ -173,6 +203,8 @@ public interface ContactRepository {
      * Unlike {@link #listImmutableGraphs()}, this method demonstrates only custom root deduplication. It keeps the
      * example of the smallest useful {@link Data.RowReducer} beside the complete immutable graph reducer.
      *
+     *  - custom deduplication
+     *  - useful when the SQL res
      * @return deduplicated contacts in first-seen order
      */
     @Data.Query("""

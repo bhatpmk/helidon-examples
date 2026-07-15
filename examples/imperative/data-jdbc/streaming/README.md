@@ -1,6 +1,8 @@
-# Helidon Data JDBC imperative streaming example
+# Helidon Data JDBC imperative row-traversal example
 
-This example uses the imperative `JdbcClient` API to demonstrate the same three provider-owned streaming terminals as the declarative streaming example. It uses an in-memory H2 database and a named JDBC persistence unit whose `init.sql` script creates sample orders.
+This example uses the imperative `JdbcClient` API to demonstrate the same two provider-owned traversal terminals as
+the declarative `streaming` example. It uses an in-memory H2 database and a named JDBC persistence unit whose
+`init.sql` script creates sample orders.
 
 ## Build and run
 
@@ -17,26 +19,32 @@ curl http://localhost:8080/orders/for-each/3
 curl http://localhost:8080/orders/for-each-while/3/2
 ```
 
-`OrderService` uses one static SQL statement and one row mapper for all three methods:
+`OrderService` uses one static SQL statement and one row mapper for both methods. Application code creates a typed
+request that carries the callback and any invocation-specific statement settings:
 
 ```java
-jdbcClient.create(SQL)
-        .options(options)
-        .bind(1, minimumId)
-        .map(MAPPER)
-        .withRows(action);
+JdbcQueryRequest.VisitAll<OrderRow> request = JdbcQueryRequest.<OrderRow>builder()
+        .fetchSize(100)
+        .queryTimeout(Duration.ofSeconds(30))
+        .visitAll(action);
 
 jdbcClient.create(SQL)
-        .options(options)
         .bind(1, minimumId)
         .map(MAPPER)
-        .forEach(action);
+        .visitAll(request);
+
+JdbcQueryRequest.VisitWhile<OrderRow> request = JdbcQueryRequest.<OrderRow>builder()
+        .fetchSize(100)
+        .queryTimeout(Duration.ofSeconds(30))
+        .visitWhile(action);
 
 boolean exhausted = jdbcClient.create(SQL)
-        .options(options)
         .bind(1, minimumId)
         .map(MAPPER)
-        .forEachWhile(action);
+        .visitWhile(request);
 ```
 
-`withRows` gives the callback a single-use iterable for ordinary loop control. `forEach` pushes every row and is the smallest choice when all rows must be consumed. `forEachWhile` stops when the predicate returns `false` and reports whether normal exhaustion occurred. The provider closes the result set, statement, and non-transactional connection before each method returns; application code never receives a JDBC resource or a closeable cursor.
+`visitAll` invokes the consumer for every mapped row. `visitWhile` stops when the predicate returns `false` and reports
+whether normal exhaustion occurred. Neither operation materializes the complete result. The provider closes the result
+set, statement, and non-transactional connection before each method returns. Application code never receives a JDBC
+resource or closeable cursor.

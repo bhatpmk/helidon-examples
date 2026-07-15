@@ -15,12 +15,15 @@
  */
 package io.helidon.examples.imperative.data.jdbc.mapping.model;
 
+import io.helidon.json.binding.Json;
+
 /**
  * Flat contact record used by scalar and optional queries.
  *
  * @param id contact identifier
  * @param name contact name
  */
+@Json.Entity
 public record Contact(Long id,
                       String name) {
 }

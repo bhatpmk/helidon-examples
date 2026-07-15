@@ -1,10 +1,10 @@
 Helidon Data Declarative JDBC Streaming Example
 ----
 
-This example demonstrates all three provider-owned JDBC traversal terminals from a declarative repository. It uses an
+This example demonstrates both provider-owned JDBC traversal terminals from a declarative repository. It uses an
 embedded H2 database, so no external database setup is required.
 
-The repository declares a synchronous callback rather than returning a plain `Stream<T>`:
+The repository accepts a typed request as its first parameter rather than returning a JDBC-backed `Stream<T>`:
 
 ```java
 @Data.Query("""
@@ -13,53 +13,92 @@ The repository declares a synchronous callback rather than returning a plain `St
         WHERE ID >= :minimumId
         ORDER BY ID
         """)
-void withRows(long minimumId, Consumer<Iterable<OrderRow>> action);
+void visitOrders(JdbcQueryRequest.VisitAll<OrderRow> request, long minimumId);
 
 @Data.Query(SELECT_ORDERS)
-void visitOrders(long minimumId, Consumer<OrderRow> action);
-
-@Data.Query(SELECT_ORDERS)
-boolean visitOrdersUntil(long minimumId, Predicate<OrderRow> action);
+boolean visitOrdersUntil(JdbcQueryRequest.VisitWhile<OrderRow> request, long minimumId);
 ```
 
-`SELECT_ORDERS` above abbreviates the same SQL shown on `withRows`; the source repeats the annotation value because an
+`SELECT_ORDERS` above abbreviates the same SQL shown on `visitOrders`; the source repeats the annotation value because an
 example repository should not expose SQL as a public interface field.
 
-The callback type and repository return type select the terminal operation at compile time:
+The request type and repository return type select the terminal operation at compile time. The request must be the first
+parameter and is never bound to SQL:
 
-| Repository callback | Repository return | Generated terminal | Use |
+| Leading request | Repository return | Generated terminal | Use |
 | --- | --- | --- | --- |
-| `Consumer<Iterable<OrderRow>>` | `void` | `withRows(action)` | Callback-scoped pull traversal; the callback may use a loop and `break` |
-| `Consumer<OrderRow>` | `void` | `forEach(action)` | Push every mapped row to the callback |
-| `Predicate<OrderRow>` | `boolean` | `forEachWhile(action)` | Push rows until the predicate returns `false` |
+| `JdbcQueryRequest.VisitAll<OrderRow>` | `void` | `visitAll(request)` | Visit every mapped row with the callback |
+| `JdbcQueryRequest.VisitWhile<OrderRow>` | primitive `boolean` | `visitWhile(request)` | Push rows until the predicate returns `false` |
 
 The generated repository maps each current row and calls the same public JDBC client API available to imperative code:
 
 ```java
-jdbcClient.create(SQL_WITH_ROWS)
-        .bind(1, minimumId)
-        .map(MAPPER_WITH_ROWS)
-        .withRows(action);
-
 jdbcClient.create(SQL_FOR_EACH)
         .bind(1, minimumId)
         .map(MAPPER_FOR_EACH)
-        .forEach(action);
+        .visitAll(request);
 
 return jdbcClient.create(SQL_FOR_EACH_WHILE)
         .bind(1, minimumId)
         .map(MAPPER_FOR_EACH_WHILE)
-        .forEachWhile(action);
+        .visitWhile(request);
 ```
 
-`withRows` acquires the logical connection, prepares and executes the statement, and invokes the callback while the
-result set is open. It closes the result set, statement, and logical connection handle before returning, including when
-the callback uses `break`, returns early, or throws. Its iterable is single-use and thread-confined and must not be
-retained. `forEach` and `forEachWhile` use the same internal cursor and cleanup path. `forEachWhile` returns `false`
-immediately when its predicate returns `false`, and returns `true` only after normal result-set exhaustion.
+`visitAll` and `visitWhile` use the same internal cursor and cleanup path. `visitWhile` returns `false` immediately
+when its predicate returns `false`, and returns `true` only after normal result-set exhaustion. Both terminals close the
+result set, statement, and logical connection handle before returning. The provider also closes them after callback,
+mapper, or JDBC failure. No JDBC resource is exposed to application code.
 
-`OrderEndpoint` uses descriptive repository methods (`visitOrders` and `visitOrdersUntil`) that select the `forEach`
-and `forEachWhile` terminals from their callback signatures. It consumes rows one at a time to calculate a bounded summary.
+The application can create a request directly when driver defaults are suitable:
+
+```java
+JdbcQueryRequest.VisitAll<OrderRow> request =
+        JdbcQueryRequest.visitAll(order -> summary.accept(order));
+
+JdbcQueryRequest.VisitWhile<OrderRow> limited =
+        JdbcQueryRequest.visitWhile(order -> {
+            summary.accept(order);
+            return summary.orderCount() < rowLimit;
+        });
+```
+
+One single-use builder adds invocation-specific statement settings. Its final method creates the immutable request; a
+separate `build()` call is not needed:
+
+```java
+JdbcQueryRequest.VisitAll<OrderRow> request = JdbcQueryRequest.<OrderRow>builder()
+        .fetchSize(100)
+        .queryTimeout(Duration.ofSeconds(30))
+        .maxRows(10_000)
+        .poolableHint(true)
+        .visitAll(order -> summary.accept(order));
+
+JdbcQueryRequest.VisitWhile<OrderRow> limited = JdbcQueryRequest.<OrderRow>builder()
+        .fetchSize(100)
+        .visitWhile(order -> {
+            summary.accept(order);
+            return summary.orderCount() < rowLimit;
+        });
+```
+
+The builder can also finish with `build()` to create a configuration-only request for `one`, `optional`, `list`,
+reduction, or generated-key terminals. It cannot be configured or used to create another request after `build()`,
+`visitAll(...)`, or `visitWhile(...)` is called. An immutable request may be reused sequentially, but an application
+callback must be safe for every reuse.
+
+```java
+JdbcQueryRequest request = JdbcQueryRequest.builder()
+        .fetchSize(100)
+        .queryTimeout(Duration.ofSeconds(30))
+        .build();
+
+List<OrderRow> rows = jdbcClient.create(SQL)
+        .map(ORDER_MAPPER)
+        .list(request);
+```
+
+`OrderEndpoint` uses descriptive repository methods (`visitOrders` and `visitOrdersUntil`) that select the `visitAll`
+and `visitWhile` terminals from their request types. It consumes rows one at a time to calculate a bounded summary.
 It does not materialize all matching orders
 in a list, and the endpoint receives only the completed `OrderSummary` after JDBC resources have closed.
 
@@ -98,13 +137,13 @@ The response shows that nine rows were consumed while retaining only aggregate s
 }
 ```
 
-Invoke the `forEach` repository method with the same result range:
+Invoke the `visitAll` repository method with the same result range:
 
 ```shell
 curl http://localhost:8080/orders/for-each/4
 ```
 
-Invoke `forEachWhile` and stop after three rows:
+Invoke `visitWhile` and stop after three rows:
 
 ```shell
 curl http://localhost:8080/orders/for-each-while/4/3

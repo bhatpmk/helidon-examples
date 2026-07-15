@@ -15,12 +15,15 @@
  */
 package io.helidon.examples.imperative.data.jdbc.mapping.model;
 
+import io.helidon.json.binding.Json;
+
 /**
  * Phone tag child object assembled from joined JDBC rows.
  *
  * @param id tag identifier
  * @param name tag name
  */
+@Json.Entity
 public record Tag(Long id,
                   String name) {
 }

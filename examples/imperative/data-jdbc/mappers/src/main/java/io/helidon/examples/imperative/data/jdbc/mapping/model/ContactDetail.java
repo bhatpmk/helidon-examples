@@ -15,6 +15,8 @@
  */
 package io.helidon.examples.imperative.data.jdbc.mapping.model;
 
+import io.helidon.json.binding.Json;
+
 /**
  * One physical row from the contact, phone, and tag join.
  *
@@ -26,6 +28,7 @@ package io.helidon.examples.imperative.data.jdbc.mapping.model;
  * @param tagId       tag identifier, or {@code null} for an absent left-joined tag
  * @param tagName     tag name
  */
+@Json.Entity
 public record ContactDetail(Long contactId,
                             String contactName,
                             Long phoneId,

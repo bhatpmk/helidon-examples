@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Optional;
 
 import io.helidon.data.jdbc.JdbcClient;
-import io.helidon.data.jdbc.JdbcExecutionOptions;
+import io.helidon.data.jdbc.JdbcStatementOptions;
 import io.helidon.service.registry.Service;
 import io.helidon.transaction.Tx;
 
@@ -35,7 +35,7 @@ import io.helidon.transaction.Tx;
 @Service.Singleton
 class PokemonService {
 
-    private static final JdbcExecutionOptions OPTIONS = JdbcExecutionOptions.builder()
+    private static final JdbcStatementOptions OPTIONS = JdbcStatementOptions.builder()
             .fetchSize(32)
             .build();
 

@@ -16,12 +16,14 @@
 package io.helidon.examples.declarative.data.jdbc.streaming;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 import io.helidon.common.Api;
 import io.helidon.common.media.type.MediaTypes;
+import io.helidon.data.jdbc.JdbcQueryRequest;
 import io.helidon.examples.declarative.data.jdbc.streaming.model.OrderRepository;
 import io.helidon.examples.declarative.data.jdbc.streaming.model.OrderRow;
 import io.helidon.http.Http;
@@ -53,10 +55,10 @@ class OrderEndpoint {
     OrderSummary summary(@Http.PathParam("minimumId") long minimumId) {
         SummaryAccumulator summary = new SummaryAccumulator(minimumId);
 
-        // The generated repository keeps JDBC resources open only while this callback executes.
-        orders.withRows(minimumId, rows -> rows.forEach(order -> summary.accept(order)));
+        JdbcQueryRequest.VisitAll<OrderRow> request = JdbcQueryRequest.visitAll(order -> summary.accept(order));
+        orders.visitOrders(request, minimumId);
 
-        // withRows has now closed the result set, statement, and logical connection handle.
+        // The terminal has now closed the result set, statement, and logical connection handle.
         return summary.result(true);
     }
 
@@ -72,8 +74,12 @@ class OrderEndpoint {
     OrderSummary visitOrders(@Http.PathParam("minimumId") long minimumId) {
         SummaryAccumulator summary = new SummaryAccumulator(minimumId);
 
-        // The callback receives one mapped row at a time; no result list is created.
-        orders.visitOrders(minimumId, order -> summary.accept(order));
+        // A configured request keeps statement tuning and traversal in one leading invocation argument.
+        JdbcQueryRequest.VisitAll<OrderRow> request = JdbcQueryRequest.<OrderRow>builder()
+                .fetchSize(100)
+                .queryTimeout(Duration.ofSeconds(30))
+                .visitAll(order -> summary.accept(order));
+        orders.visitOrders(request, minimumId);
         return summary.result(true);
     }
 
@@ -94,10 +100,14 @@ class OrderEndpoint {
         }
 
         SummaryAccumulator summary = new SummaryAccumulator(minimumId);
-        boolean exhausted = orders.visitOrdersUntil(minimumId, order -> {
-            summary.accept(order);
-            return summary.orderCount < rowLimit;
-        });
+        JdbcQueryRequest.VisitWhile<OrderRow> request = JdbcQueryRequest.<OrderRow>builder()
+                .fetchSize(100)
+                .queryTimeout(Duration.ofSeconds(30))
+                .visitWhile(order -> {
+                    summary.accept(order);
+                    return summary.orderCount < rowLimit;
+                });
+        boolean exhausted = orders.visitOrdersUntil(request, minimumId);
         return summary.result(exhausted);
     }
 

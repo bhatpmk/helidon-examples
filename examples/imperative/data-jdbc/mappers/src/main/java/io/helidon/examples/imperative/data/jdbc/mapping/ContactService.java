@@ -24,7 +24,7 @@ import java.util.Optional;
 
 import io.helidon.data.DataException;
 import io.helidon.data.jdbc.JdbcClient;
-import io.helidon.data.jdbc.JdbcExecutionOptions;
+import io.helidon.data.jdbc.JdbcStatementOptions;
 import io.helidon.examples.imperative.data.jdbc.mapping.model.Contact;
 import io.helidon.examples.imperative.data.jdbc.mapping.model.ContactCard;
 import io.helidon.examples.imperative.data.jdbc.mapping.model.ContactDetail;
@@ -44,7 +44,7 @@ import io.helidon.examples.imperative.data.jdbc.mapping.model.Tag;
  */
 final class ContactService {
 
-    private static final JdbcExecutionOptions OPTIONS = JdbcExecutionOptions.builder()
+    private static final JdbcStatementOptions OPTIONS = JdbcStatementOptions.builder()
             .fetchSize(32)
             .build();
 
@@ -211,8 +211,16 @@ final class ContactService {
 
         @Override
         public void accept(JdbcClient.Row row) {
-            Long contactId = row.required("contactId", Long.class);
-            String contactName = row.get("contactName", String.class);
+            String contactIdLabel = compositePhoneIdentity ? "contactId" : "id";
+            String contactNameLabel = compositePhoneIdentity ? "contactName" : "name";
+            String phoneIdLabel = compositePhoneIdentity ? "phoneId" : "phones.id";
+            String phoneTypeLabel = compositePhoneIdentity ? "phoneType" : "phones.type";
+            String phoneNumberLabel = compositePhoneIdentity ? "phoneNumber" : "phones.phone";
+            String tagIdLabel = compositePhoneIdentity ? "tagId" : "phones.tags.id";
+            String tagNameLabel = compositePhoneIdentity ? "tagName" : "phones.tags.name";
+
+            Long contactId = row.required(contactIdLabel, Long.class);
+            String contactName = row.get(contactNameLabel, String.class);
             ContactState contact = contacts.get(contactId);
             if (contact == null) {
                 contact = new ContactState(contactId, contactName);
@@ -221,11 +229,11 @@ final class ContactService {
                 throw new DataException("Conflicting projected contact name for one identity");
             }
 
-            Long phoneId = row.get("phoneId", Long.class);
-            String phoneType = row.get("phoneType", String.class);
-            String phoneNumber = row.get("phoneNumber", String.class);
-            Long tagId = row.get("tagId", Long.class);
-            String tagName = row.get("tagName", String.class);
+            Long phoneId = row.get(phoneIdLabel, Long.class);
+            String phoneType = row.get(phoneTypeLabel, String.class);
+            String phoneNumber = row.get(phoneNumberLabel, String.class);
+            Long tagId = row.get(tagIdLabel, Long.class);
+            String tagName = row.get(tagNameLabel, String.class);
             if (phoneId == null && phoneType == null && phoneNumber == null) {
                 if (tagId != null || tagName != null) {
                     throw new DataException("Projected tag exists beneath an absent phone");

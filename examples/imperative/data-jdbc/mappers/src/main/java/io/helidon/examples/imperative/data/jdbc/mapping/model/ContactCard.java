@@ -15,6 +15,8 @@
  */
 package io.helidon.examples.imperative.data.jdbc.mapping.model;
 
+import io.helidon.json.binding.Json;
+
 /**
  * Contact projection created by an imperative row mapper.
  *
@@ -24,6 +26,7 @@ package io.helidon.examples.imperative.data.jdbc.mapping.model;
  * @param phoneCount number of phone rows
  * @param tagCount number of tag rows
  */
+@Json.Entity
 public record ContactCard(Long id,
                           String displayName,
                           String firstPhone,

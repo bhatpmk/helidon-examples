@@ -18,9 +18,12 @@ package io.helidon.examples.declarative.data.jdbc.mapping.model;
 import java.util.ArrayList;
 import java.util.List;
 
+import io.helidon.json.binding.Json;
+
 /**
  * Mutable phone node used by the generated graph reducer.
  */
+@Json.Entity
 public class PhoneGraph {
     private Long id;
     private String type;

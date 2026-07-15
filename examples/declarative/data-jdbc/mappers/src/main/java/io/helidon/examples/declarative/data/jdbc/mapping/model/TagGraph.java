@@ -15,9 +15,12 @@
  */
 package io.helidon.examples.declarative.data.jdbc.mapping.model;
 
+import io.helidon.json.binding.Json;
+
 /**
  * Mutable tag node used by the generated graph reducer.
  */
+@Json.Entity
 public class TagGraph {
     private Long id;
     private String name;

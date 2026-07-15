@@ -16,17 +16,16 @@
 package io.helidon.examples.imperative.data.jdbc.streaming;
 
 import java.math.BigDecimal;
-import java.util.function.Consumer;
-import java.util.function.Predicate;
 
 import io.helidon.data.jdbc.JdbcClient;
-import io.helidon.data.jdbc.JdbcExecutionOptions;
+import io.helidon.data.jdbc.JdbcQueryRequest;
 
 /**
- * Imperative streaming operations that mirror the declarative streaming repository.
+ * Imperative callback-based row traversal that mirrors the declarative repository.
  * <p>
- * All three methods use the same SQL, mapper, and public fluent client. The provider owns the connection, statement,
- * and result set, and closes them before each terminal returns.
+ * Both methods use the same SQL, mapper, and public client calls that generated repositories use. The request carries
+ * the callback and invocation-specific statement settings. The provider owns the connection, statement, and result
+ * set, and closes them before each terminal returns.
  */
 final class OrderService {
 
@@ -40,10 +39,6 @@ final class OrderService {
             ORDER BY ID
             """;
 
-    private static final JdbcExecutionOptions OPTIONS = JdbcExecutionOptions.builder()
-            .fetchSize(32)
-            .build();
-
     private static final JdbcClient.RowMapper<OrderRow> MAPPER = row -> new OrderRow(
             row.required("id", Long.class),
             row.required("customer", String.class),
@@ -56,27 +51,17 @@ final class OrderService {
         this.jdbcClient = jdbcClient;
     }
 
-    void withRows(long minimumId, Consumer<? super Iterable<OrderRow>> action) {
+    void visitOrders(JdbcQueryRequest.VisitAll<OrderRow> request, long minimumId) {
         jdbcClient.create(SQL)
-                .options(OPTIONS)
                 .bind(1, minimumId)
                 .map(MAPPER)
-                .withRows(action);
+                .visitAll(request);
     }
 
-    void forEach(long minimumId, Consumer<? super OrderRow> action) {
-        jdbcClient.create(SQL)
-                .options(OPTIONS)
-                .bind(1, minimumId)
-                .map(MAPPER)
-                .forEach(action);
-    }
-
-    boolean forEachWhile(long minimumId, Predicate<? super OrderRow> action) {
+    boolean visitOrdersUntil(JdbcQueryRequest.VisitWhile<OrderRow> request, long minimumId) {
         return jdbcClient.create(SQL)
-                .options(OPTIONS)
                 .bind(1, minimumId)
                 .map(MAPPER)
-                .forEachWhile(action);
+                .visitWhile(request);
     }
 }

@@ -16,17 +16,19 @@
 package io.helidon.examples.imperative.data.jdbc.streaming;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import io.helidon.data.jdbc.JdbcQueryRequest;
 import io.helidon.webserver.http.HttpRules;
 import io.helidon.webserver.http.HttpService;
 import io.helidon.webserver.http.ServerRequest;
 import io.helidon.webserver.http.ServerResponse;
 
 /**
- * HTTP routes that demonstrate each provider-owned streaming terminal.
+ * HTTP routes that demonstrate both provider-owned row traversal terminals.
  */
 final class OrderRoutes implements HttpService {
 
@@ -39,35 +41,44 @@ final class OrderRoutes implements HttpService {
     @Override
     public void routing(HttpRules rules) {
         rules.get("/summary/{minimumId}", this::summary)
-                .get("/for-each/{minimumId}", this::forEach)
-                .get("/for-each-while/{minimumId}/{rowLimit}", this::forEachWhile);
+                .get("/for-each/{minimumId}", this::visitAll)
+                .get("/for-each-while/{minimumId}/{rowLimit}", this::visitWhile);
     }
 
     private void summary(ServerRequest request, ServerResponse response) {
         long minimumId = Long.parseLong(request.path().pathParameters().get("minimumId"));
         SummaryAccumulator summary = new SummaryAccumulator(minimumId);
-        orders.withRows(minimumId, rows -> rows.forEach(summary::accept));
+        JdbcQueryRequest.VisitAll<OrderRow> query = JdbcQueryRequest.visitAll(order -> summary.accept(order));
+        orders.visitOrders(query, minimumId);
         response.send(summary.result(true));
     }
 
-    private void forEach(ServerRequest request, ServerResponse response) {
+    private void visitAll(ServerRequest request, ServerResponse response) {
         long minimumId = Long.parseLong(request.path().pathParameters().get("minimumId"));
         SummaryAccumulator summary = new SummaryAccumulator(minimumId);
-        orders.forEach(minimumId, summary::accept);
+        JdbcQueryRequest.VisitAll<OrderRow> query = JdbcQueryRequest.<OrderRow>builder()
+                .fetchSize(100)
+                .queryTimeout(Duration.ofSeconds(30))
+                .visitAll(order -> summary.accept(order));
+        orders.visitOrders(query, minimumId);
         response.send(summary.result(true));
     }
 
-    private void forEachWhile(ServerRequest request, ServerResponse response) {
+    private void visitWhile(ServerRequest request, ServerResponse response) {
         long minimumId = Long.parseLong(request.path().pathParameters().get("minimumId"));
         int rowLimit = Integer.parseInt(request.path().pathParameters().get("rowLimit"));
         if (rowLimit < 1) {
             throw new IllegalArgumentException("rowLimit must be greater than zero");
         }
         SummaryAccumulator summary = new SummaryAccumulator(minimumId);
-        boolean exhausted = orders.forEachWhile(minimumId, order -> {
-            summary.accept(order);
-            return summary.orderCount < rowLimit;
-        });
+        JdbcQueryRequest.VisitWhile<OrderRow> query = JdbcQueryRequest.<OrderRow>builder()
+                .fetchSize(100)
+                .queryTimeout(Duration.ofSeconds(30))
+                .visitWhile(order -> {
+                    summary.accept(order);
+                    return summary.orderCount < rowLimit;
+                });
+        boolean exhausted = orders.visitOrdersUntil(query, minimumId);
         response.send(summary.result(exhausted));
     }
 

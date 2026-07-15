@@ -17,6 +17,8 @@ package io.helidon.examples.imperative.data.jdbc.mapping.model;
 
 import java.util.List;
 
+import io.helidon.json.binding.Json;
+
 /**
  * Phone child aggregate assembled from joined JDBC rows.
  *
@@ -25,6 +27,7 @@ import java.util.List;
  * @param phone phone number
  * @param tags phone tags
  */
+@Json.Entity
 public record Phone(Long id,
                     String type,
                     String phone,

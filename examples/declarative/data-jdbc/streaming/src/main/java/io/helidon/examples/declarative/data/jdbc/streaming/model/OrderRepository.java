@@ -15,18 +15,16 @@
  */
 package io.helidon.examples.declarative.data.jdbc.streaming.model;
 
-import java.util.function.Consumer;
-import java.util.function.Predicate;
-
 import io.helidon.data.Data;
+import io.helidon.data.jdbc.JdbcQueryRequest;
 
 /**
  * Declarative repository demonstrating callback-based JDBC row traversal.
  * <p>
  * {@link OrderRow} is a record whose components match the SQL labels, so code generation creates the row mapper
- * without an annotation. The trailing callback selects the traversal terminal. A {@code RowReducer} is intentionally
- * not involved because result-set reduction must finish before it can expose a logical graph, while these methods
- * deliver mapped physical rows synchronously as the provider advances the cursor.
+ * without an annotation. The leading request selects the traversal terminal and is not bound to SQL. A
+ * {@code RowReducer} is intentionally not involved because these methods deliver independent physical rows while the
+ * provider advances the cursor.
  */
 @Data.Repository
 @Data.Provider("jdbc")
@@ -36,8 +34,8 @@ public interface OrderRepository {
     /**
      * Visit every matching order while the provider owns the JDBC resources.
      *
+     * @param request   callback and invocation-specific statement settings
      * @param minimumId first order identifier to include
-     * @param action    synchronous row consumer
      */
     @Data.Query("""
             SELECT ID AS id,
@@ -48,7 +46,7 @@ public interface OrderRepository {
               WHERE ID >= :minimumId
               ORDER BY ID
             """)
-    void visitOrders(long minimumId, Consumer<OrderRow> action);
+    void visitOrders(JdbcQueryRequest.VisitAll<OrderRow> request, long minimumId);
 
     /**
      * Visit matching orders until all rows are exhausted or the predicate returns {@code false}.
@@ -56,8 +54,8 @@ public interface OrderRepository {
      * Consume stops normally when the predicate returns false and
      *   reports whether exhaustion was normal
      *
+     * @param request   continuation predicate and invocation-specific statement settings
      * @param minimumId first order identifier to include
-     * @param action    synchronous continuation predicate
      * @return {@code true} after normal exhaustion, or {@code false} after predicate-directed termination
      */
     @Data.Query("""
@@ -69,25 +67,5 @@ public interface OrderRepository {
             WHERE ID >= :minimumId
             ORDER BY ID
             """)
-    boolean visitOrdersUntil(long minimumId, Predicate<OrderRow> action);
-
-
-    /**
-     * Consume matching orders while the provider owns the JDBC resources.
-     * <p>
-     * The callback must process the iterable synchronously and must not retain it after returning.
-     *
-     * @param minimumId first order identifier to include
-     * @param action    synchronous row consumer
-     */
-    @Data.Query("""
-            SELECT ID AS id,
-                   CUSTOMER AS customer,
-                   REGION AS region,
-                   AMOUNT AS amount
-            FROM SALES_ORDER
-            WHERE ID >= :minimumId
-            ORDER BY ID
-            """)
-    void withRows(long minimumId, Consumer<Iterable<OrderRow>> action);
+    boolean visitOrdersUntil(JdbcQueryRequest.VisitWhile<OrderRow> request, long minimumId);
 }

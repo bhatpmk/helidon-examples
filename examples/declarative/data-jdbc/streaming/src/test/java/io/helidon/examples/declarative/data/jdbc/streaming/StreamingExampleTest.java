@@ -18,9 +18,8 @@ package io.helidon.examples.declarative.data.jdbc.streaming;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.function.Consumer;
-import java.util.function.Predicate;
 
+import io.helidon.data.jdbc.JdbcQueryRequest;
 import io.helidon.examples.declarative.data.jdbc.streaming.model.OrderRepository;
 import io.helidon.examples.declarative.data.jdbc.streaming.model.OrderRow;
 import org.junit.jupiter.api.Test;
@@ -35,14 +34,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class StreamingExampleTest {
 
     @Test
-    void generatedSourceUsesAllProviderOwnedStreamingTerminals() throws Exception {
+    void generatedSourceUsesTypedProviderOwnedStreamingTerminals() throws Exception {
         String source = generatedRepository();
 
-        assertTrue(source.contains(".map(MAPPER_WITH_ROWS).withRows(action)"), source);
-        assertTrue(source.contains(".map(MAPPER_VISIT_ORDERS).forEach(action)"), source);
-        assertTrue(source.contains(".map(MAPPER_VISIT_ORDERS_UNTIL).forEachWhile(action)"), source);
-        assertTrue(source.contains("Consumer<Iterable<OrderRow>>"), source);
-        assertTrue(source.contains("Predicate<OrderRow>"), source);
+        assertTrue(source.contains(".map(MAPPER_VISIT_ORDERS).visitAll(request)"), source);
+        assertTrue(source.contains(".map(MAPPER_VISIT_ORDERS_UNTIL).visitWhile(request)"), source);
+        assertTrue(source.contains("JdbcQueryRequest.VisitAll<OrderRow> request"), source);
+        assertTrue(source.contains("JdbcQueryRequest.VisitWhile<OrderRow> request"), source);
+        assertFalse(source.contains("withRows"), source);
         assertFalse(source.contains("execute().params"), source);
         assertFalse(source.contains("ResultSet"), source);
     }
@@ -58,7 +57,7 @@ class StreamingExampleTest {
     }
 
     @Test
-    void endpointUsesWithRowsForScopedPullConsumption() {
+    void summaryEndpointUsesDirectVisitAllRequest() {
         OrderSummary summary = new OrderEndpoint(recordingRepository()).summary(11);
 
         assertEquals(2, summary.orderCount());
@@ -68,7 +67,7 @@ class StreamingExampleTest {
     }
 
     @Test
-    void endpointUsesForEachToConsumeEveryRow() {
+    void endpointUsesVisitAllToConsumeEveryRow() {
         OrderSummary summary = new OrderEndpoint(recordingRepository()).visitOrders(10);
 
         assertEquals(3, summary.orderCount());
@@ -78,7 +77,7 @@ class StreamingExampleTest {
     }
 
     @Test
-    void endpointUsesForEachWhileForPredicateDirectedTermination() {
+    void endpointUsesVisitWhileForPredicateDirectedTermination() {
         OrderSummary summary = new OrderEndpoint(recordingRepository()).visitOrdersUntil(10, 2);
 
         assertEquals(2, summary.orderCount());
@@ -105,19 +104,14 @@ class StreamingExampleTest {
                     new OrderRow(12, "Cedar", "Asia Pacific", new java.math.BigDecimal("30.00")));
 
             @Override
-            public void withRows(long minimumId, Consumer<Iterable<OrderRow>> action) {
-                action.accept(rows.stream().filter(row -> row.id() >= minimumId).toList());
+            public void visitOrders(JdbcQueryRequest.VisitAll<OrderRow> request, long minimumId) {
+                rows.stream().filter(row -> row.id() >= minimumId).forEach(request);
             }
 
             @Override
-            public void visitOrders(long minimumId, Consumer<OrderRow> action) {
-                rows.stream().filter(row -> row.id() >= minimumId).forEach(action);
-            }
-
-            @Override
-            public boolean visitOrdersUntil(long minimumId, Predicate<OrderRow> action) {
+            public boolean visitOrdersUntil(JdbcQueryRequest.VisitWhile<OrderRow> request, long minimumId) {
                 for (OrderRow row : rows) {
-                    if (row.id() >= minimumId && !action.test(row)) {
+                    if (row.id() >= minimumId && !request.test(row)) {
                         return false;
                     }
                 }

@@ -11,11 +11,11 @@ repository interfaces, declarative endpoints, or generated repository implementa
   local JDBC transactions.
 - `mappers` - scalar, record, bean, explicit row-mapper, flat-join, generated-style graph-reducer, and
   application-specific reducer examples.
-- `streaming` - provider-owned `withRows`, `forEach`, and `forEachWhile` traversal over an H2 datasource.
+- `streaming` - provider-owned `visitAll` and `visitWhile` row traversal over an H2 datasource.
 
 ## Build
 
-Build both examples from this directory:
+Build all examples from this directory:
 
 ```shell
 mvn package

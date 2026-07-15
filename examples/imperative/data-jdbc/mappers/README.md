@@ -22,7 +22,7 @@ The imperative chain has the same shape used by generated declarative repositori
 
 ```java
 jdbcClient.create(SQL)
-        .options(options)
+        .options(JdbcStatementOptions.builder().fetchSize(32).build())
         .bind(1, value)
         .map(MAPPER)
         .list();
