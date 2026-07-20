@@ -12,8 +12,7 @@ This example models a fulfillment service that uses stored procedures for import
 - statement options for a large result (`fetchSize` and `queryTimeout`); and
 - provider-owned JDBC resources: the application receives detached records, never a `ResultSet` or cursor.
 
-The repository uses `@Jdbc.Execution(Jdbc.ExecutionType.CALL)` on `@Jdbc.Statement`. There is no separate `@Jdbc.Call`
-annotation and no Jdbi dependency.
+The repository uses `@Jdbc.Execution(Jdbc.ExecutionType.CALL)` on `@Jdbc.Statement`.
 
 ## Routine creation is UPDATE execution
 
