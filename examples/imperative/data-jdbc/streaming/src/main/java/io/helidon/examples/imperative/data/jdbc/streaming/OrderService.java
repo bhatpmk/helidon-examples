@@ -18,7 +18,7 @@ package io.helidon.examples.imperative.data.jdbc.streaming;
 import java.math.BigDecimal;
 
 import io.helidon.data.jdbc.JdbcClient;
-import io.helidon.data.jdbc.JdbcQueryRequest;
+import io.helidon.data.jdbc.JdbcResultRequest;
 
 /**
  * Imperative callback-based row traversal that mirrors the declarative repository.
@@ -51,14 +51,14 @@ final class OrderService {
         this.jdbcClient = jdbcClient;
     }
 
-    void visitOrders(JdbcQueryRequest.VisitAll<OrderRow> request, long minimumId) {
+    void visitOrders(JdbcResultRequest.VisitAll<OrderRow> request, long minimumId) {
         jdbcClient.create(SQL)
                 .bind(1, minimumId)
                 .map(MAPPER)
                 .visitAll(request);
     }
 
-    boolean visitOrdersUntil(JdbcQueryRequest.VisitWhile<OrderRow> request, long minimumId) {
+    boolean visitOrdersUntil(JdbcResultRequest.VisitWhile<OrderRow> request, long minimumId) {
         return jdbcClient.create(SQL)
                 .bind(1, minimumId)
                 .map(MAPPER)

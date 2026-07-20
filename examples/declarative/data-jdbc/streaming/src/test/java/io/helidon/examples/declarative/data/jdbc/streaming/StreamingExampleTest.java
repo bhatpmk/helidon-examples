@@ -19,7 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
-import io.helidon.data.jdbc.JdbcQueryRequest;
+import io.helidon.data.jdbc.JdbcResultRequest;
 import io.helidon.examples.declarative.data.jdbc.streaming.model.OrderRepository;
 import io.helidon.examples.declarative.data.jdbc.streaming.model.OrderRow;
 import org.junit.jupiter.api.Test;
@@ -37,10 +37,10 @@ class StreamingExampleTest {
     void generatedSourceUsesTypedProviderOwnedStreamingTerminals() throws Exception {
         String source = generatedRepository();
 
-        assertTrue(source.contains(".map(MAPPER_VISIT_ORDERS).visitAll(request)"), source);
-        assertTrue(source.contains(".map(MAPPER_VISIT_ORDERS_UNTIL).visitWhile(request)"), source);
-        assertTrue(source.contains("JdbcQueryRequest.VisitAll<OrderRow> request"), source);
-        assertTrue(source.contains("JdbcQueryRequest.VisitWhile<OrderRow> request"), source);
+        assertTrue(source.contains(".map(orderRowRowMapper).visitAll(request)"), source);
+        assertTrue(source.contains(".map(orderRowRowMapper).visitWhile(request)"), source);
+        assertTrue(source.contains("JdbcResultRequest.VisitAll<OrderRow> request"), source);
+        assertTrue(source.contains("JdbcResultRequest.VisitWhile<OrderRow> request"), source);
         assertFalse(source.contains("withRows"), source);
         assertFalse(source.contains("execute().params"), source);
         assertFalse(source.contains("ResultSet"), source);
@@ -104,12 +104,12 @@ class StreamingExampleTest {
                     new OrderRow(12, "Cedar", "Asia Pacific", new java.math.BigDecimal("30.00")));
 
             @Override
-            public void visitOrders(JdbcQueryRequest.VisitAll<OrderRow> request, long minimumId) {
+            public void visitOrders(JdbcResultRequest.VisitAll<OrderRow> request, long minimumId) {
                 rows.stream().filter(row -> row.id() >= minimumId).forEach(request);
             }
 
             @Override
-            public boolean visitOrdersUntil(JdbcQueryRequest.VisitWhile<OrderRow> request, long minimumId) {
+            public boolean visitOrdersUntil(JdbcResultRequest.VisitWhile<OrderRow> request, long minimumId) {
                 for (OrderRow row : rows) {
                     if (row.id() >= minimumId && !request.test(row)) {
                         return false;

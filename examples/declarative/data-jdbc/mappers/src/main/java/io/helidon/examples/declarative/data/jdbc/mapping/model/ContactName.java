@@ -18,11 +18,12 @@ package io.helidon.examples.declarative.data.jdbc.mapping.model;
 import io.helidon.json.binding.Json;
 
 /**
- * Immutable tag node in the application-reduced contact graph.
+ * Application-defined contact name projection whose components intentionally differ from the SQL column labels.
  *
- * @param id   tag identifier
- * @param name tag name
+ * @param contactNumber value read from the SQL {@code id} column
+ * @param displayName formatted value derived from the SQL {@code name} column
  */
 @Json.Entity
-public record ImmutableTagGraph(Long id, String name) {
+public record ContactName(Long contactNumber,
+                          String displayName) {
 }

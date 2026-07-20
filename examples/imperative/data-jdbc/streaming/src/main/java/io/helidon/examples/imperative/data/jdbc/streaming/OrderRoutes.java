@@ -21,7 +21,8 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import io.helidon.data.jdbc.JdbcQueryRequest;
+import io.helidon.data.jdbc.JdbcResultRequest;
+import io.helidon.data.jdbc.JdbcStatementOptions;
 import io.helidon.webserver.http.HttpRules;
 import io.helidon.webserver.http.HttpService;
 import io.helidon.webserver.http.ServerRequest;
@@ -48,7 +49,7 @@ final class OrderRoutes implements HttpService {
     private void summary(ServerRequest request, ServerResponse response) {
         long minimumId = Long.parseLong(request.path().pathParameters().get("minimumId"));
         SummaryAccumulator summary = new SummaryAccumulator(minimumId);
-        JdbcQueryRequest.VisitAll<OrderRow> query = JdbcQueryRequest.visitAll(order -> summary.accept(order));
+        JdbcResultRequest.VisitAll<OrderRow> query = JdbcResultRequest.visitAll(summary::accept);
         orders.visitOrders(query, minimumId);
         response.send(summary.result(true));
     }
@@ -56,10 +57,11 @@ final class OrderRoutes implements HttpService {
     private void visitAll(ServerRequest request, ServerResponse response) {
         long minimumId = Long.parseLong(request.path().pathParameters().get("minimumId"));
         SummaryAccumulator summary = new SummaryAccumulator(minimumId);
-        JdbcQueryRequest.VisitAll<OrderRow> query = JdbcQueryRequest.<OrderRow>builder()
-                .fetchSize(100)
-                .queryTimeout(Duration.ofSeconds(30))
-                .visitAll(order -> summary.accept(order));
+        JdbcResultRequest.VisitAll<OrderRow> query = JdbcResultRequest.<OrderRow>visitAll(summary::accept)
+                .withOptions(JdbcStatementOptions.builder()
+                                     .fetchSize(100)
+                                     .queryTimeout(Duration.ofSeconds(30))
+                                     .build());
         orders.visitOrders(query, minimumId);
         response.send(summary.result(true));
     }
@@ -71,13 +73,14 @@ final class OrderRoutes implements HttpService {
             throw new IllegalArgumentException("rowLimit must be greater than zero");
         }
         SummaryAccumulator summary = new SummaryAccumulator(minimumId);
-        JdbcQueryRequest.VisitWhile<OrderRow> query = JdbcQueryRequest.<OrderRow>builder()
-                .fetchSize(100)
-                .queryTimeout(Duration.ofSeconds(30))
-                .visitWhile(order -> {
+        JdbcResultRequest.VisitWhile<OrderRow> query = JdbcResultRequest.<OrderRow>visitWhile(order -> {
                     summary.accept(order);
                     return summary.orderCount < rowLimit;
-                });
+                })
+                .withOptions(JdbcStatementOptions.builder()
+                                     .fetchSize(100)
+                                     .queryTimeout(Duration.ofSeconds(30))
+                                     .build());
         boolean exhausted = orders.visitOrdersUntil(query, minimumId);
         response.send(summary.result(exhausted));
     }

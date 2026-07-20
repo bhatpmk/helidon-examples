@@ -15,11 +15,11 @@
  */
 package io.helidon.examples.declarative.data.jdbc.model;
 
-import java.sql.JDBCType;
 import java.util.List;
 import java.util.Optional;
 
 import io.helidon.data.Data;
+import io.helidon.data.jdbc.Jdbc;
 
 /**
  * Explicit SQL repository for Pokémon rows and their joined type projection.
@@ -27,7 +27,7 @@ import io.helidon.data.Data;
  * Every read method returns either a supported scalar or {@link PokemonRow}, whose record components match the SQL
  * column labels. Helidon therefore generates a direct row mapper and uses {@code one()}, {@code optional()}, or
  * {@code list()} according to the declared return type. The join produces one flat record per physical result row, so
- * neither {@link Data.BeanMapping} nor {@link Data.RowReducer} is needed.
+ * neither {@link Jdbc.IdentityReducer} nor {@link Jdbc.RowReducer} is needed.
  */
 @Data.Repository
 @Data.Provider("jdbc")
@@ -39,7 +39,7 @@ public interface PokemonRepository {
      *
      * @return ordered pokemon rows
      */
-    @Data.Query("""
+    @Jdbc.Statement("""
             SELECT p.ID AS id, p.NAME AS name, p.TYPE_ID AS typeId, t.NAME AS typeName
             FROM POKEMON p
             JOIN TYPE t ON t.ID = p.TYPE_ID
@@ -54,7 +54,7 @@ public interface PokemonRepository {
      * @param offset zero-based row offset
      * @return rows in identifier order
      */
-    @Data.Query("""
+    @Jdbc.Statement("""
             SELECT p.ID AS id, p.NAME AS name, p.TYPE_ID AS typeId, t.NAME AS typeName
             FROM POKEMON p
             JOIN TYPE t ON t.ID = p.TYPE_ID
@@ -70,7 +70,7 @@ public interface PokemonRepository {
      * @param size maximum number of rows
      * @return rows in identifier order
      */
-    @Data.Query("""
+    @Jdbc.Statement("""
             SELECT p.ID AS id, p.NAME AS name, p.TYPE_ID AS typeId, t.NAME AS typeName
             FROM POKEMON p
             JOIN TYPE t ON t.ID = p.TYPE_ID
@@ -85,7 +85,8 @@ public interface PokemonRepository {
      *
      * @return total row count
      */
-    @Data.Query("SELECT COUNT(*) FROM POKEMON")
+    @Jdbc.Statement("SELECT COUNT(*) FROM POKEMON")
+    @Jdbc.Execution(Jdbc.ExecutionType.QUERY)
     long count();
 
     /**
@@ -94,14 +95,14 @@ public interface PokemonRepository {
      * @param typeName pokemon type name
      * @return matching pokemon rows
      */
-    @Data.Query("""
+    @Jdbc.Statement("""
             SELECT p.ID AS id, p.NAME AS name, p.TYPE_ID AS typeId, t.NAME AS typeName
             FROM POKEMON p
             JOIN TYPE t ON t.ID = p.TYPE_ID
             WHERE t.NAME = :typeName
             ORDER BY p.NAME
             """)
-    List<PokemonRow> listByTypeName(@Data.JdbcType(JDBCType.VARCHAR) String typeName);
+    List<PokemonRow> listByTypeName(String typeName);
 
     /**
      * Finds one pokemon row by name.
@@ -109,7 +110,7 @@ public interface PokemonRepository {
      * @param name pokemon name
      * @return matching row, or empty when the row is not present
      */
-    @Data.Query("""
+    @Jdbc.Statement("""
             SELECT p.ID AS id, p.NAME AS name, p.TYPE_ID AS typeId, t.NAME AS typeName
             FROM POKEMON p
             JOIN TYPE t ON t.ID = p.TYPE_ID
@@ -123,7 +124,7 @@ public interface PokemonRepository {
      * @param id pokemon identifier
      * @return matching row, or empty when the row is not present
      */
-    @Data.Query("""
+    @Jdbc.Statement("""
             SELECT p.ID AS id, p.NAME AS name, p.TYPE_ID AS typeId, t.NAME AS typeName
             FROM POKEMON p
             JOIN TYPE t ON t.ID = p.TYPE_ID
@@ -138,8 +139,8 @@ public interface PokemonRepository {
      * @param typeId      pokemon type identifier
      * @return database-generated pokemon identifier
      */
-    @Data.Update("INSERT INTO POKEMON (NAME, TYPE_ID) VALUES (:pokemonName, :typeId)")
-    @Data.GeneratedKeys
+    @Jdbc.Statement("INSERT INTO POKEMON (NAME, TYPE_ID) VALUES (:pokemonName, :typeId)")
+    @Jdbc.GeneratedKeys
     int insertPokemon(String pokemonName, int typeId);
 
     /**
@@ -148,6 +149,7 @@ public interface PokemonRepository {
      * @param id pokemon identifier
      * @return affected row count
      */
-    @Data.Update("DELETE FROM POKEMON WHERE ID = :id")
+    @Jdbc.Statement("DELETE FROM POKEMON WHERE ID = :id")
+    @Jdbc.Execution(Jdbc.ExecutionType.UPDATE)
     long deleteById(int id);
 }

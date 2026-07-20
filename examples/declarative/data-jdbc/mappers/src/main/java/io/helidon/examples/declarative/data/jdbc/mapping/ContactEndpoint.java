@@ -24,8 +24,10 @@ import io.helidon.examples.declarative.data.jdbc.mapping.model.Contact;
 import io.helidon.examples.declarative.data.jdbc.mapping.model.ContactCard;
 import io.helidon.examples.declarative.data.jdbc.mapping.model.ContactDetail;
 import io.helidon.examples.declarative.data.jdbc.mapping.model.ContactGraph;
+import io.helidon.examples.declarative.data.jdbc.mapping.model.ContactName;
+import io.helidon.examples.declarative.data.jdbc.mapping.model.ContactPhone;
 import io.helidon.examples.declarative.data.jdbc.mapping.model.ContactRepository;
-import io.helidon.examples.declarative.data.jdbc.mapping.model.ImmutableContactGraph;
+import io.helidon.examples.declarative.data.jdbc.mapping.model.CustomContactGraph;
 import io.helidon.http.Http;
 import io.helidon.service.registry.Service;
 import io.helidon.webserver.http.RestServer;
@@ -33,9 +35,9 @@ import io.helidon.webserver.http.RestServer;
 /**
  * HTTP views of the mapping strategies declared by {@link ContactRepository}.
  * <p>
- * The endpoints expose flat record mapping, an explicit one-row mapper, generated mutable graph reduction, and an
- * application reducer that creates an immutable graph with composite phone identity. The endpoint never receives a
- * JDBC row or resource; all mapping and reduction finishes before a repository method returns.
+ * The endpoints expose generated record mapping, exact and generic one-row mapper service selection, generated graph
+ * reduction, and an application reducer that creates a custom record graph with composite phone identity. The
+ * endpoint never receives a JDBC row or resource; all mapping and reduction finishes before a repository method returns.
  */
 @SuppressWarnings(Api.SUPPRESS_INCUBATING) // Helidon declarative is an incubating feature
 @Http.Path("/contacts")
@@ -67,8 +69,22 @@ class ContactEndpoint {
     @Http.GET
     @Http.Path("/mapped/{id}")
     @Http.Produces(MediaTypes.APPLICATION_JSON_VALUE)
-    Contact mapped(@Http.PathParam("id") long id) {
+    ContactName mapped(@Http.PathParam("id") long id) {
         return contacts.mappedContact(id);
+    }
+
+    @Http.GET
+    @Http.Path("/mapped-summary/{id}")
+    @Http.Produces(MediaTypes.APPLICATION_JSON_VALUE)
+    ContactName mappedSummary(@Http.PathParam("id") long id) {
+        return contacts.mappedContactSummary(id);
+    }
+
+    @Http.GET
+    @Http.Path("/mapped-phone/{id}")
+    @Http.Produces(MediaTypes.APPLICATION_JSON_VALUE)
+    ContactPhone mappedPhone(@Http.PathParam("id") long id) {
+        return contacts.mappedPrimaryPhone(id);
     }
 
     @Http.GET
@@ -100,10 +116,10 @@ class ContactEndpoint {
     }
 
     @Http.GET
-    @Http.Path("/immutable-graphs")
+    @Http.Path("/custom-graphs")
     @Http.Produces(MediaTypes.APPLICATION_JSON_VALUE)
-    List<ImmutableContactGraph> immutableGraphs() {
-        return contacts.listImmutableGraphs();
+    List<CustomContactGraph> customGraphs() {
+        return contacts.listCustomGraphs();
     }
 
     @Http.GET

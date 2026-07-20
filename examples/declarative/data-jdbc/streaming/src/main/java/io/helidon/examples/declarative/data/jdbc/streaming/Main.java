@@ -22,7 +22,7 @@ import io.helidon.service.registry.ServiceRegistryManager;
 /**
  * Entry point for the declarative JDBC callback-streaming example.
  * <p>
- * The generator maps each physical row directly to an {@code OrderRow} record. A leading {@code JdbcQueryRequest}
+ * The generator maps each physical row directly to an {@code OrderRow} record. A leading {@code JdbcResultRequest}
  * selects either {@code visitAll} or {@code visitWhile}. These are row-mapper traversal terminals, not graph reducers:
  * each callback observes one mapped row while the provider retains ownership of the result set, statement, and
  * connection.

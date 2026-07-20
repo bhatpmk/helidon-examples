@@ -1,0 +1,59 @@
+--
+-- Copyright (c) 2026 Oracle and/or its affiliates.
+--
+-- Licensed under the Apache License, Version 2.0 (the "License");
+-- you may not use this file except in compliance with the License.
+-- You may obtain a copy of the License at
+--
+--     http://www.apache.org/licenses/LICENSE-2.0
+--
+-- Unless required by applicable law or agreed to in writing, software
+-- distributed under the License is distributed on an "AS IS" BASIS,
+-- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-- See the License for the specific language governing permissions and
+-- limitations under the License.
+--
+
+DROP TABLE IF EXISTS FULFILLMENT_AUDIT;
+DROP TABLE IF EXISTS ORDER_LINE;
+DROP TABLE IF EXISTS SALES_ORDER;
+
+CREATE TABLE SALES_ORDER (
+    ID BIGINT PRIMARY KEY,
+    CUSTOMER_ID BIGINT NOT NULL,
+    STATUS VARCHAR(20) NOT NULL,
+    TOTAL_AMOUNT DECIMAL(12, 2) NOT NULL,
+    ATTEMPTS INT NOT NULL DEFAULT 0,
+    RESERVED_AT TIMESTAMP NULL
+);
+
+CREATE TABLE ORDER_LINE (
+    ID BIGINT PRIMARY KEY,
+    ORDER_ID BIGINT NOT NULL,
+    SKU VARCHAR(40) NOT NULL,
+    QUANTITY INT NOT NULL,
+    UNIT_PRICE DECIMAL(12, 2) NOT NULL,
+    BACKORDERED BOOLEAN NOT NULL DEFAULT FALSE,
+    CONSTRAINT ORDER_LINE_ORDER_FK FOREIGN KEY (ORDER_ID) REFERENCES SALES_ORDER(ID)
+);
+
+CREATE TABLE FULFILLMENT_AUDIT (
+    ID BIGINT PRIMARY KEY AUTO_INCREMENT,
+    ORDER_ID BIGINT NOT NULL,
+    REQUESTED_BY VARCHAR(80) NOT NULL,
+    ATTEMPTS INT NOT NULL,
+    CREATED_AT TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO SALES_ORDER (ID, CUSTOMER_ID, STATUS, TOTAL_AMOUNT, ATTEMPTS) VALUES
+    (1001, 501, 'PENDING', 149.97, 0),
+    (1002, 501, 'PENDING', 899.00, 0),
+    (1003, 502, 'PENDING', 64.50, 1),
+    (1004, 503, 'CANCELLED', 42.00, 0);
+
+INSERT INTO ORDER_LINE (ID, ORDER_ID, SKU, QUANTITY, UNIT_PRICE, BACKORDERED) VALUES
+    (1, 1001, 'KB-104', 1, 89.99, FALSE),
+    (2, 1001, 'MOUSE-22', 2, 29.99, FALSE),
+    (3, 1002, 'MON-4K', 1, 899.00, TRUE),
+    (4, 1003, 'USB-C-90', 3, 21.50, FALSE),
+    (5, 1004, 'DOCK-12', 1, 42.00, FALSE);

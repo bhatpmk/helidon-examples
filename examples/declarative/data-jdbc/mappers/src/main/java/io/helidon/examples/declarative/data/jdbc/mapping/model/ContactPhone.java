@@ -15,23 +15,17 @@
  */
 package io.helidon.examples.declarative.data.jdbc.mapping.model;
 
-import java.util.List;
-
 import io.helidon.json.binding.Json;
 
 /**
- * Immutable contact graph produced by an application-supplied row reducer.
- * <p>
- * Unlike an ordinary record projection, one instance represents several physical join rows. The selected
- * {@link ImmutableContactGraphReducer} consumes those rows, removes duplicates, and supplies an immutable phone list
- * when it finishes processing the result set.
+ * Application-mapped view of a contact's first phone.
  *
- * @param id     contact identifier
- * @param name   contact name
- * @param phones ordered, immutable phones belonging to the contact
+ * @param contactId contact identifier
+ * @param owner contact name
+ * @param phoneLabel application-formatted phone type and number
  */
 @Json.Entity
-public record ImmutableContactGraph(Long id,
-                                    String name,
-                                    List<ImmutablePhoneGraph> phones) {
+public record ContactPhone(Long contactId,
+                           String owner,
+                           String phoneLabel) {
 }

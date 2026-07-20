@@ -7,16 +7,16 @@ embedded H2 database, so no external database setup is required.
 The repository accepts a typed request as its first parameter rather than returning a JDBC-backed `Stream<T>`:
 
 ```java
-@Data.Query("""
+@Jdbc.Statement("""
         SELECT ID AS id, CUSTOMER AS customer, REGION AS region, AMOUNT AS amount
         FROM SALES_ORDER
         WHERE ID >= :minimumId
         ORDER BY ID
         """)
-void visitOrders(JdbcQueryRequest.VisitAll<OrderRow> request, long minimumId);
+void visitOrders(JdbcResultRequest.VisitAll<OrderRow> request, long minimumId);
 
-@Data.Query(SELECT_ORDERS)
-boolean visitOrdersUntil(JdbcQueryRequest.VisitWhile<OrderRow> request, long minimumId);
+@Jdbc.Statement(SELECT_ORDERS)
+boolean visitOrdersUntil(JdbcResultRequest.VisitWhile<OrderRow> request, long minimumId);
 ```
 
 `SELECT_ORDERS` above abbreviates the same SQL shown on `visitOrders`; the source repeats the annotation value because an
@@ -27,8 +27,8 @@ parameter and is never bound to SQL:
 
 | Leading request | Repository return | Generated terminal | Use |
 | --- | --- | --- | --- |
-| `JdbcQueryRequest.VisitAll<OrderRow>` | `void` | `visitAll(request)` | Visit every mapped row with the callback |
-| `JdbcQueryRequest.VisitWhile<OrderRow>` | primitive `boolean` | `visitWhile(request)` | Push rows until the predicate returns `false` |
+| `JdbcResultRequest.VisitAll<OrderRow>` | `void` | `visitAll(request)` | Visit every mapped row with the callback |
+| `JdbcResultRequest.VisitWhile<OrderRow>` | primitive `boolean` | `visitWhile(request)` | Push rows until the predicate returns `false` |
 
 The generated repository maps each current row and calls the same public JDBC client API available to imperative code:
 
@@ -52,49 +52,23 @@ mapper, or JDBC failure. No JDBC resource is exposed to application code.
 The application can create a request directly when driver defaults are suitable:
 
 ```java
-JdbcQueryRequest.VisitAll<OrderRow> request =
-        JdbcQueryRequest.visitAll(order -> summary.accept(order));
+JdbcResultRequest.VisitAll<OrderRow> request =
+        JdbcResultRequest.visitAll(order -> summary.accept(order));
 
-JdbcQueryRequest.VisitWhile<OrderRow> limited =
-        JdbcQueryRequest.visitWhile(order -> {
+JdbcResultRequest.VisitWhile<OrderRow> limited =
+        JdbcResultRequest.visitWhile(order -> {
             summary.accept(order);
             return summary.orderCount() < rowLimit;
         });
 ```
 
-One single-use builder adds invocation-specific statement settings. Its final method creates the immutable request; a
-separate `build()` call is not needed:
+The request factories create immutable callback requests. Invocation-specific statement settings can be added without
+changing the repository signature:
 
 ```java
-JdbcQueryRequest.VisitAll<OrderRow> request = JdbcQueryRequest.<OrderRow>builder()
-        .fetchSize(100)
-        .queryTimeout(Duration.ofSeconds(30))
-        .maxRows(10_000)
-        .poolableHint(true)
-        .visitAll(order -> summary.accept(order));
-
-JdbcQueryRequest.VisitWhile<OrderRow> limited = JdbcQueryRequest.<OrderRow>builder()
-        .fetchSize(100)
-        .visitWhile(order -> {
-            summary.accept(order);
-            return summary.orderCount() < rowLimit;
-        });
-```
-
-The builder can also finish with `build()` to create a configuration-only request for `one`, `optional`, `list`,
-reduction, or generated-key terminals. It cannot be configured or used to create another request after `build()`,
-`visitAll(...)`, or `visitWhile(...)` is called. An immutable request may be reused sequentially, but an application
-callback must be safe for every reuse.
-
-```java
-JdbcQueryRequest request = JdbcQueryRequest.builder()
-        .fetchSize(100)
-        .queryTimeout(Duration.ofSeconds(30))
-        .build();
-
-List<OrderRow> rows = jdbcClient.create(SQL)
-        .map(ORDER_MAPPER)
-        .list(request);
+JdbcResultRequest.VisitAll<OrderRow> request = JdbcResultRequest
+        .visitAll(summary::accept)
+        .withOptions(JdbcStatementOptions.builder().fetchSize(100).build());
 ```
 
 `OrderEndpoint` uses descriptive repository methods (`visitOrders` and `visitOrdersUntil`) that select the `visitAll`

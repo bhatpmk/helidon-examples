@@ -18,6 +18,7 @@ package io.helidon.examples.declarative.data.jdbc.model;
 import java.util.List;
 
 import io.helidon.data.Data;
+import io.helidon.data.jdbc.Jdbc;
 
 /**
  * Explicit SQL repository for pokemon type rows.
@@ -33,7 +34,7 @@ public interface TypeRepository {
      * @param name type name
      * @return matching type row
      */
-    @Data.Query("SELECT ID AS id, NAME AS name FROM TYPE WHERE NAME = :name")
+    @Jdbc.Statement("SELECT ID AS id, NAME AS name FROM TYPE WHERE NAME = :name")
     TypeRow getByName(String name);
 
     /**
@@ -41,6 +42,6 @@ public interface TypeRepository {
      *
      * @return ordered type rows
      */
-    @Data.Query("SELECT ID AS id, NAME AS name FROM TYPE ORDER BY NAME")
+    @Jdbc.Statement("SELECT ID AS id, NAME AS name FROM TYPE ORDER BY NAME")
     List<TypeRow> listOrderByName();
 }

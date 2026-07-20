@@ -36,7 +36,7 @@
     <modules>
         <module>pokemon</module>
         <module>mappers</module>
-        <!-- module>stored-procedures</module -->
+        <module>stored-procedures</module>
         <module>streaming</module>
     </modules>
 </project>

@@ -39,6 +39,6 @@ public final class ContactNameMapper implements JdbcClient.RowMapper<Contact> {
      */
     @Override
     public Contact map(JdbcClient.Row row) {
-        return new Contact(row.required("id", Long.class), row.get("name", String.class));
+        return new Contact(row.required("id", Long.class), row.required("name", String.class));
     }
 }

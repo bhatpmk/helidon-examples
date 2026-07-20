@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Optional;
 
 import io.helidon.data.jdbc.JdbcClient;
-import io.helidon.data.jdbc.JdbcStatementOptions;
 import io.helidon.service.registry.Service;
 import io.helidon.transaction.Tx;
 
@@ -29,15 +28,11 @@ import io.helidon.transaction.Tx;
  * <p>
  * The methods mirror the declarative Pokémon repository: records are mapped with direct row-mapper lambdas, scalar
  * counts use {@code map(long.class)}, reads use positional binds, DML uses {@code execute()}, and generated keys use
- * {@code generatedKeys(...).one()}. Paging remains explicit MySQL SQL, and the typed VARCHAR bind demonstrates the
- * imperative equivalent of declarative {@code @Data.JdbcType}.
+ * {@code generatedKeys(...).one()}. Paging remains explicit MySQL SQL, and the typed VARCHAR bind demonstrates an
+ * explicit JDBC type override for an imperative parameter.
  */
 @Service.Singleton
 class PokemonService {
-
-    private static final JdbcStatementOptions OPTIONS = JdbcStatementOptions.builder()
-            .fetchSize(32)
-            .build();
 
     private static final String POKEMON_SELECT = """
             SELECT p.ID AS id, p.NAME AS name, p.TYPE_ID AS typeId, t.NAME AS typeName
@@ -64,7 +59,6 @@ class PokemonService {
 
     List<PokemonDto> listOrderByName() {
         return jdbcClient.create(POKEMON_SELECT + " ORDER BY p.NAME")
-                .options(OPTIONS)
                 .map(POKEMON_MAPPER)
                 .list()
                 .stream()

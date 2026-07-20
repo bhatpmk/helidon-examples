@@ -25,7 +25,7 @@ import io.helidon.data.DataException;
 import io.helidon.data.jdbc.JdbcClient;
 
 /**
- * Reduces contact, phone, and tag join rows into an immutable object graph.
+ * Reduces contact, phone, and tag join rows into an custom record graph.
  * <p>
  * The reducer demonstrates the application-controlled alternative to generated graph reduction. It defines a
  * composite phone identity from the phone type and number, retains first-seen SQL order, suppresses duplicate rows,
@@ -35,15 +35,15 @@ import io.helidon.data.jdbc.JdbcClient;
  * <p>The reducer copies values from each callback-scoped {@link JdbcClient.Row} into its own state. It never retains
  * the row or receives a JDBC resource.</p>
  */
-public final class ImmutableContactGraphReducer
-        implements JdbcClient.RowReducer<List<ImmutableContactGraph>> {
+public final class CustomContactGraphReducer
+        implements JdbcClient.RowReducer<List<CustomContactGraph>> {
 
     private final Map<Long, ContactState> contacts = new LinkedHashMap<>();
 
     /**
      * Creates reducer state for one repository invocation.
      */
-    public ImmutableContactGraphReducer() {
+    public CustomContactGraphReducer() {
     }
 
     /**
@@ -64,11 +64,11 @@ public final class ImmutableContactGraphReducer
             throw new DataException("Conflicting projected contact name for one contact identity");
         }
 
-        Long phoneId = row.get("phoneId", Long.class);
-        String phoneType = row.get("phoneType", String.class);
-        String phoneNumber = row.get("phoneNumber", String.class);
-        Long tagId = row.get("tagId", Long.class);
-        String tagName = row.get("tagName", String.class);
+        Long phoneId = row.optional("phoneId", Long.class).orElse(null);
+        String phoneType = row.optional("phoneType", String.class).orElse(null);
+        String phoneNumber = row.optional("phoneNumber", String.class).orElse(null);
+        Long tagId = row.optional("tagId", Long.class).orElse(null);
+        String tagName = row.optional("tagName", String.class).orElse(null);
 
         boolean phoneAbsent = phoneId == null && phoneType == null && phoneNumber == null;
         if (phoneAbsent) {
@@ -100,29 +100,29 @@ public final class ImmutableContactGraphReducer
             throw new DataException("Projected tag identity exists without a tag name");
         }
 
-        ImmutableTagGraph existing = phone.tags.putIfAbsent(tagId, new ImmutableTagGraph(tagId, tagName));
+        CustomTagGraph existing = phone.tags.putIfAbsent(tagId, new CustomTagGraph(tagId, tagName));
         if (existing != null && !Objects.equals(existing.name(), tagName)) {
             throw new DataException("Conflicting projected tag name for one tag identity");
         }
     }
 
     /**
-     * Creates the immutable result after the provider exhausts the result set.
+     * Creates the custom record result after the provider exhausts the result set.
      *
-     * @return immutable roots, phones, and tags in first-seen SQL order
+     * @return custom record roots, phones, and tags in first-seen SQL order
      */
     @Override
-    public List<ImmutableContactGraph> finish() {
-        List<ImmutableContactGraph> result = new ArrayList<>(contacts.size());
+    public List<CustomContactGraph> finish() {
+        List<CustomContactGraph> result = new ArrayList<>(contacts.size());
         for (ContactState contact : contacts.values()) {
-            List<ImmutablePhoneGraph> phones = new ArrayList<>(contact.phones.size());
+            List<CustomPhoneGraph> phones = new ArrayList<>(contact.phones.size());
             for (PhoneState phone : contact.phones.values()) {
-                phones.add(new ImmutablePhoneGraph(phone.databaseId,
+                phones.add(new CustomPhoneGraph(phone.databaseId,
                                                    phone.type,
                                                    phone.number,
                                                    List.copyOf(phone.tags.values())));
             }
-            result.add(new ImmutableContactGraph(contact.id, contact.name, List.copyOf(phones)));
+            result.add(new CustomContactGraph(contact.id, contact.name, List.copyOf(phones)));
         }
         return List.copyOf(result);
     }
@@ -145,7 +145,7 @@ public final class ImmutableContactGraphReducer
         private final Long databaseId;
         private final String type;
         private final String number;
-        private final Map<Long, ImmutableTagGraph> tags = new LinkedHashMap<>();
+        private final Map<Long, CustomTagGraph> tags = new LinkedHashMap<>();
 
         private PhoneState(Long databaseId, String type, String number) {
             this.databaseId = databaseId;
@@ -154,3 +154,4 @@ public final class ImmutableContactGraphReducer
         }
     }
 }
+

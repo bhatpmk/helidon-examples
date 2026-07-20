@@ -16,7 +16,8 @@
 package io.helidon.examples.declarative.data.jdbc.streaming.model;
 
 import io.helidon.data.Data;
-import io.helidon.data.jdbc.JdbcQueryRequest;
+import io.helidon.data.jdbc.Jdbc;
+import io.helidon.data.jdbc.JdbcResultRequest;
 
 /**
  * Declarative repository demonstrating callback-based JDBC row traversal.
@@ -34,10 +35,10 @@ public interface OrderRepository {
     /**
      * Visit every matching order while the provider owns the JDBC resources.
      *
-     * @param request   callback and invocation-specific statement settings
+     * @param request   callback request that selects provider-owned visit-all traversal
      * @param minimumId first order identifier to include
      */
-    @Data.Query("""
+    @Jdbc.Statement("""
             SELECT ID AS id,
             CUSTOMER AS customer,
             REGION AS region,
@@ -46,19 +47,18 @@ public interface OrderRepository {
               WHERE ID >= :minimumId
               ORDER BY ID
             """)
-    void visitOrders(JdbcQueryRequest.VisitAll<OrderRow> request, long minimumId);
+    void visitOrders(JdbcResultRequest.VisitAll<OrderRow> request, long minimumId);
 
     /**
      * Visit matching orders until all rows are exhausted or the predicate returns {@code false}.
      *
-     * Consume stops normally when the predicate returns false and
-     *   reports whether exhaustion was normal
+     * The predicate decides whether the provider should read another row.
      *
-     * @param request   continuation predicate and invocation-specific statement settings
+     * @param request   continuation-predicate request that selects provider-owned visit-while traversal
      * @param minimumId first order identifier to include
      * @return {@code true} after normal exhaustion, or {@code false} after predicate-directed termination
      */
-    @Data.Query("""
+    @Jdbc.Statement("""
             SELECT ID AS id,
                    CUSTOMER AS customer,
                    REGION AS region,
@@ -67,5 +67,5 @@ public interface OrderRepository {
             WHERE ID >= :minimumId
             ORDER BY ID
             """)
-    boolean visitOrdersUntil(JdbcQueryRequest.VisitWhile<OrderRow> request, long minimumId);
+    boolean visitOrdersUntil(JdbcResultRequest.VisitWhile<OrderRow> request, long minimumId);
 }

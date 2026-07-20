@@ -24,7 +24,6 @@ import java.util.Optional;
 
 import io.helidon.data.DataException;
 import io.helidon.data.jdbc.JdbcClient;
-import io.helidon.data.jdbc.JdbcStatementOptions;
 import io.helidon.examples.imperative.data.jdbc.mapping.model.Contact;
 import io.helidon.examples.imperative.data.jdbc.mapping.model.ContactCard;
 import io.helidon.examples.imperative.data.jdbc.mapping.model.ContactDetail;
@@ -43,10 +42,6 @@ import io.helidon.examples.imperative.data.jdbc.mapping.model.Tag;
  * identity, which is intentionally an application-owned reduction rule.
  */
 final class ContactService {
-
-    private static final JdbcStatementOptions OPTIONS = JdbcStatementOptions.builder()
-            .fetchSize(32)
-            .build();
 
     private static final String CONTACT_SELECT = "SELECT ID AS id, NAME AS name FROM CONTACT";
 
@@ -107,21 +102,21 @@ final class ContactService {
 
     private static final JdbcClient.RowMapper<Contact> CONTACT_MAPPER = row -> new Contact(
             row.required("id", Long.class),
-            row.get("name", String.class));
+            row.required("name", String.class));
 
     private static final JdbcClient.RowMapper<ContactDetail> DETAIL_MAPPER = row -> new ContactDetail(
             row.required("contactId", Long.class),
-            row.get("contactName", String.class),
-            row.get("phoneId", Long.class),
-            row.get("phoneType", String.class),
-            row.get("phoneNumber", String.class),
-            row.get("tagId", Long.class),
-            row.get("tagName", String.class));
+            row.required("contactName", String.class),
+            row.optional("phoneId", Long.class).orElse(null),
+            row.optional("phoneType", String.class).orElse(null),
+            row.optional("phoneNumber", String.class).orElse(null),
+            row.optional("tagId", Long.class).orElse(null),
+            row.optional("tagName", String.class).orElse(null));
 
     private static final JdbcClient.RowMapper<ContactCard> CARD_MAPPER = row -> new ContactCard(
             row.required("id", Long.class),
-            row.get("displayName", String.class),
-            row.get("firstPhone", String.class),
+            row.required("displayName", String.class),
+            row.optional("firstPhone", String.class).orElse(null),
             row.required("phoneCount", Long.class),
             row.required("tagCount", Long.class));
 
@@ -133,7 +128,6 @@ final class ContactService {
 
     List<Contact> listContacts() {
         return jdbcClient.create(CONTACT_SELECT + " ORDER BY ID")
-                .options(OPTIONS)
                 .map(CONTACT_MAPPER)
                 .list();
     }
@@ -154,34 +148,29 @@ final class ContactService {
 
     List<String> listNames() {
         return jdbcClient.create("SELECT NAME FROM CONTACT ORDER BY ID")
-                .options(OPTIONS)
                 .map(String.class)
                 .list();
     }
 
     List<ContactDetail> listDetails() {
         return jdbcClient.create(DETAILS_SQL)
-                .options(OPTIONS)
                 .map(DETAIL_MAPPER)
                 .list();
     }
 
     List<ContactCard> listCards() {
         return jdbcClient.create(CARDS_SQL)
-                .options(OPTIONS)
                 .map(CARD_MAPPER)
                 .list();
     }
 
     List<ContactGraph> listGraphs() {
         return jdbcClient.create(GRAPHS_SQL)
-                .options(OPTIONS)
                 .reduce(new ContactGraphReducer(false));
     }
 
     List<ContactGraph> listImmutableGraphs() {
         return jdbcClient.create(IMMUTABLE_GRAPHS_SQL)
-                .options(OPTIONS)
                 .reduce(new ContactGraphReducer(true));
     }
 
@@ -220,7 +209,7 @@ final class ContactService {
             String tagNameLabel = compositePhoneIdentity ? "tagName" : "phones.tags.name";
 
             Long contactId = row.required(contactIdLabel, Long.class);
-            String contactName = row.get(contactNameLabel, String.class);
+            String contactName = row.required(contactNameLabel, String.class);
             ContactState contact = contacts.get(contactId);
             if (contact == null) {
                 contact = new ContactState(contactId, contactName);
@@ -229,11 +218,11 @@ final class ContactService {
                 throw new DataException("Conflicting projected contact name for one identity");
             }
 
-            Long phoneId = row.get(phoneIdLabel, Long.class);
-            String phoneType = row.get(phoneTypeLabel, String.class);
-            String phoneNumber = row.get(phoneNumberLabel, String.class);
-            Long tagId = row.get(tagIdLabel, Long.class);
-            String tagName = row.get(tagNameLabel, String.class);
+            Long phoneId = row.optional(phoneIdLabel, Long.class).orElse(null);
+            String phoneType = row.optional(phoneTypeLabel, String.class).orElse(null);
+            String phoneNumber = row.optional(phoneNumberLabel, String.class).orElse(null);
+            Long tagId = row.optional(tagIdLabel, Long.class).orElse(null);
+            String tagName = row.optional(tagNameLabel, String.class).orElse(null);
             if (phoneId == null && phoneType == null && phoneNumber == null) {
                 if (tagId != null || tagName != null) {
                     throw new DataException("Projected tag exists beneath an absent phone");
@@ -294,7 +283,7 @@ final class ContactService {
         @Override
         public void accept(JdbcClient.Row row) {
             Long id = row.required("id", Long.class);
-            contacts.putIfAbsent(id, new Contact(id, row.get("name", String.class)));
+            contacts.putIfAbsent(id, new Contact(id, row.required("name", String.class)));
         }
 
         @Override

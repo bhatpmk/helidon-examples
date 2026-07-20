@@ -26,7 +26,7 @@ import io.helidon.data.jdbc.JdbcClient;
  *
  * <p>The reducer demonstrates that an explicit reducer can define identity and duplicate handling without exposing a
  * JDBC {@code ResultSet} to application code. It is the minimal root-only counterpart to
- * {@link ImmutableContactGraphReducer}, which demonstrates nested immutable graph construction and composite child
+ * {@link CustomContactGraphReducer}, which demonstrates nested record graph construction and composite child
  * identity.</p>
  */
 public final class ContactRowReducer implements JdbcClient.RowReducer<List<Contact>> {
@@ -46,7 +46,7 @@ public final class ContactRowReducer implements JdbcClient.RowReducer<List<Conta
     @Override
     public void accept(JdbcClient.Row row) {
         Long id = row.required("id", Long.class);
-        contacts.putIfAbsent(id, new Contact(id, row.get("name", String.class)));
+        contacts.putIfAbsent(id, new Contact(id, row.required("name", String.class)));
     }
 
     /**

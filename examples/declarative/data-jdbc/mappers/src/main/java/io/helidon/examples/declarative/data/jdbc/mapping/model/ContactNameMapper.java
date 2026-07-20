@@ -15,16 +15,23 @@
  */
 package io.helidon.examples.declarative.data.jdbc.mapping.model;
 
+import java.util.Locale;
+
 import io.helidon.data.jdbc.JdbcClient;
+import io.helidon.service.registry.Service;
 
 /**
- * Explicit mapper for one physical contact row.
+ * Explicit mapper from SQL labels {@code id} and {@code name} to the differently shaped {@link ContactName} record.
  * <p>
- * {@code @Data.RowMapper(ContactNameMapper.class)} tells code generation to construct this class directly and pass it
- * to {@code JdbcClient.map}. The generated repository keeps one mapper instance, so this implementation is stateless.
- * It performs no cross-row aggregation or duplicate suppression.
+ * {@code @Jdbc.RowMapper(ContactNameMapper.class)} selects this exact service type for the annotated repository method.
+ * The generated repository receives the service through constructor injection and passes it to
+ * {@code JdbcClient.map}. The mapper changes {@code id} to {@code contactNumber} and converts {@code name} to the
+ * uppercase {@code displayName}; generated record mapping cannot infer either rule from the result type. This singleton
+ * is stateless because one instance may serve concurrent repository calls. It maps one physical row and performs no
+ * cross-row aggregation or duplicate suppression.
  */
-public final class ContactNameMapper implements JdbcClient.RowMapper<Contact> {
+@Service.Singleton
+public final class ContactNameMapper implements JdbcClient.RowMapper<ContactName> {
 
     /**
      * Creates the stateless mapper.
@@ -33,13 +40,14 @@ public final class ContactNameMapper implements JdbcClient.RowMapper<Contact> {
     }
 
     /**
-     * Maps the current row to a contact record.
+     * Maps the current row to an application-defined contact name.
      *
      * @param row current callback-scoped row
-     * @return mapped contact
+     * @return mapped and formatted contact name
      */
     @Override
-    public Contact map(JdbcClient.Row row) {
-        return new Contact(row.get("id", Long.class), row.get("name", String.class));
+    public ContactName map(JdbcClient.Row row) {
+        return new ContactName(row.required("id", Long.class),
+                               row.required("name", String.class).toUpperCase(Locale.ROOT));
     }
 }

@@ -13,11 +13,11 @@ The application puts the Helidon Data JDBC code generator on the annotation proc
 repositories with `@Data.Provider("jdbc")`. The repositories use the named JDBC persistence unit
 `pokemon`, configured under `data.persistence-units.jdbc` in `application.yaml`.
 
-Repository methods use `@Data.Query` for reads and `@Data.Update` for insert and delete operations. The paginated SQL
-contains database-side `LIMIT` and `OFFSET` clauses, so the SQL remains explicit and database-specific. The repository
-uses a separate count query to calculate page metadata, while keyset paging uses an explicit cursor predicate. The
-insert method uses `@Data.GeneratedKeys` and returns the generated pokemon identifier. Delete returns the affected-row
-count.
+Repository methods use `@Jdbc.Statement` for SQL. Most reads are inferred from their mapped return types. The scalar
+count declares `@Jdbc.Execution(QUERY)`, and the update-count method declares `@Jdbc.Execution(UPDATE)`, because a
+primitive numeric return alone cannot distinguish those operations. The paginated SQL contains database-side `LIMIT`
+and `OFFSET` clauses, so the SQL remains explicit and database-specific. The insert method uses `@Jdbc.GeneratedKeys`,
+which implies update execution and returns the generated pokemon identifier.
 
 Query-by-method-name, JPA entity mapping, relationship reducers, and historical POC mapper annotations
 such as `@Data.Map`, `@Data.Mapper`, `@Data.MapWith`, and `@Data.ReduceWith` are intentionally not active
@@ -117,7 +117,7 @@ curl http://localhost:8080/pokemon/types
 
 ### PokemonRepository.insertPokemon(String pokemonName, int typeId)
 
-Inserts one pokemon row through a declarative repository method. `@Data.GeneratedKeys` makes the
+Inserts one pokemon row through a declarative repository method. `@Jdbc.GeneratedKeys` makes the
 repository return the database-generated identifier, which the endpoint uses for the read-back. The
 type lookup, insert, and read-back execute in one `@Tx.Required` transaction.
 

@@ -23,20 +23,23 @@ curl http://localhost:8080/orders/for-each-while/3/2
 request that carries the callback and any invocation-specific statement settings:
 
 ```java
-JdbcQueryRequest.VisitAll<OrderRow> request = JdbcQueryRequest.<OrderRow>builder()
+JdbcStatementOptions options = JdbcStatementOptions.builder()
         .fetchSize(100)
         .queryTimeout(Duration.ofSeconds(30))
-        .visitAll(action);
+        .build();
+
+JdbcResultRequest.VisitAll<OrderRow> request = JdbcResultRequest
+        .visitAll(action)
+        .withOptions(options);
 
 jdbcClient.create(SQL)
         .bind(1, minimumId)
         .map(MAPPER)
         .visitAll(request);
 
-JdbcQueryRequest.VisitWhile<OrderRow> request = JdbcQueryRequest.<OrderRow>builder()
-        .fetchSize(100)
-        .queryTimeout(Duration.ofSeconds(30))
-        .visitWhile(action);
+JdbcResultRequest.VisitWhile<OrderRow> request = JdbcResultRequest
+        .visitWhile(action)
+        .withOptions(options);
 
 boolean exhausted = jdbcClient.create(SQL)
         .bind(1, minimumId)

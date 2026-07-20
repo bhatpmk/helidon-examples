@@ -15,64 +15,21 @@
  */
 package io.helidon.examples.declarative.data.jdbc.mapping.model;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import io.helidon.json.binding.Json;
 
 /**
- * Mutable phone node used by the generated graph reducer.
+ * Phone record node constructed by the generated identity reducer.
+ *
+ * @param id    phone identifier
+ * @param type  phone type
+ * @param phone phone number
+ * @param tags  ordered tags belonging to the phone
  */
 @Json.Entity
-public class PhoneGraph {
-    private Long id;
-    private String type;
-    private String phone;
-    private List<TagGraph> tags = new ArrayList<>();
-
-    /**
-     * Creates an empty phone node for generated bean mapping.
-     */
-    public PhoneGraph() {
-    }
-
-    /** @return phone identifier */
-    public Long getId() {
-        return id;
-    }
-
-    /** @param id phone identifier */
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    /** @return phone type */
-    public String getType() {
-        return type;
-    }
-
-    /** @param type phone type */
-    public void setType(String type) {
-        this.type = type;
-    }
-
-    /** @return phone number */
-    public String getPhone() {
-        return phone;
-    }
-
-    /** @param phone phone number */
-    public void setPhone(String phone) {
-        this.phone = phone;
-    }
-
-    /** @return tags, never {@code null} */
-    public List<TagGraph> getTags() {
-        return tags;
-    }
-
-    /** @param tags tag collection */
-    public void setTags(List<TagGraph> tags) {
-        this.tags = tags;
-    }
+public record PhoneGraph(Long id,
+                         String type,
+                         String phone,
+                         List<TagGraph> tags) {
 }

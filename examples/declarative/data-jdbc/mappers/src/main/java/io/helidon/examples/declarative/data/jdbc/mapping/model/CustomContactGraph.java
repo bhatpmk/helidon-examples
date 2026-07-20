@@ -20,20 +20,18 @@ import java.util.List;
 import io.helidon.json.binding.Json;
 
 /**
- * Immutable phone node in the application-reduced contact graph.
+ * Custom contact graph produced by an application-supplied row reducer.
  * <p>
- * {@link ImmutableContactGraphReducer} deliberately identifies a phone by the composite {@code (type, phone)} key.
- * The generated graph reducer supports one scalar identity property, so this application-defined identity is one
- * reason to select {@code @Data.RowReducer} instead.
+ * Unlike an ordinary record projection, one instance represents several physical join rows. The selected
+ * {@link CustomContactGraphReducer} consumes those rows, removes duplicates, and supplies a record phone list
+ * when it finishes processing the result set.
  *
- * @param databaseId database identifier retained as projected data
- * @param type       phone type
- * @param phone      phone number
- * @param tags       ordered, immutable tags belonging to the phone
+ * @param id     contact identifier
+ * @param name   contact name
+ * @param phones ordered phones belonging to the contact
  */
 @Json.Entity
-public record ImmutablePhoneGraph(Long databaseId,
-                                  String type,
-                                  String phone,
-                                  List<ImmutableTagGraph> tags) {
+public record CustomContactGraph(Long id,
+                                    String name,
+                                    List<CustomPhoneGraph> phones) {
 }

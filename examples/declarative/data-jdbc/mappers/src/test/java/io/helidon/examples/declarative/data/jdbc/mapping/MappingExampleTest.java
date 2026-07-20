@@ -20,6 +20,7 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import io.helidon.data.DataException;
 import io.helidon.data.jdbc.JdbcClient;
@@ -27,18 +28,24 @@ import io.helidon.examples.declarative.data.jdbc.mapping.model.Contact;
 import io.helidon.examples.declarative.data.jdbc.mapping.model.ContactCard;
 import io.helidon.examples.declarative.data.jdbc.mapping.model.ContactDetail;
 import io.helidon.examples.declarative.data.jdbc.mapping.model.ContactGraph;
+import io.helidon.examples.declarative.data.jdbc.mapping.model.ContactName;
+import io.helidon.examples.declarative.data.jdbc.mapping.model.ContactNameMapper;
+import io.helidon.examples.declarative.data.jdbc.mapping.model.ContactPhone;
+import io.helidon.examples.declarative.data.jdbc.mapping.model.ContactPhoneMapper;
 import io.helidon.examples.declarative.data.jdbc.mapping.model.ContactRowReducer;
-import io.helidon.examples.declarative.data.jdbc.mapping.model.ImmutableContactGraph;
-import io.helidon.examples.declarative.data.jdbc.mapping.model.ImmutableContactGraphReducer;
+import io.helidon.examples.declarative.data.jdbc.mapping.model.ContactSummaryMapper;
+import io.helidon.examples.declarative.data.jdbc.mapping.model.CustomContactGraph;
+import io.helidon.examples.declarative.data.jdbc.mapping.model.CustomContactGraphReducer;
 import io.helidon.examples.declarative.data.jdbc.mapping.model.PhoneGraph;
 import io.helidon.examples.declarative.data.jdbc.mapping.model.TagGraph;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.not;
+import static org.hamcrest.CoreMatchers.nullValue;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Regression tests for the generated mapping shapes used by the example.
@@ -49,68 +56,119 @@ class MappingExampleTest {
     void generatedSourceContainsEveryMappingPath() throws Exception {
         String source = generatedRepository();
 
-        assertTrue(source.contains(".map(MAPPER_LIST_CONTACTS).list()"), source);
-        assertTrue(source.contains(".map(MAPPER_FIND_CONTACT).optional()"), source);
-        assertTrue(source.contains("new ContactNameMapper()"), source);
-        assertTrue(source.contains(".map(MAPPER_MAPPED_CONTACT).one()"), source);
-        assertTrue(source.contains(".map(String.class).list()"), source);
-        assertTrue(source.contains(".map(MAPPER_LIST_DETAILS).list()"), source);
-        assertTrue(source.contains(".map(MAPPER_LIST_CARDS).list()"), source);
-        assertTrue(source.contains(".reduce(new Reducer_ListGraphs())"), source);
-        assertTrue(source.contains(".reduce(new ImmutableContactGraphReducer())"), source);
-        assertTrue(source.contains(".reduce(new ContactRowReducer())"), source);
-        assertTrue(source.contains("IdentityHashMap<ContactGraph, LinkedHashMap<Long, PhoneGraph>>"), source);
-        assertTrue(source.contains("IdentityHashMap<PhoneGraph, LinkedHashMap<Long, TagGraph>>"), source);
-        assertTrue(source.contains("if (phonesTagsId != null)"), source);
-        assertTrue(source.contains("row.get(\"phoneId\", Long.class)"), source);
-        assertTrue(source.contains("row.get(\"tagId\", Long.class)"), source);
-        assertTrue(source.contains("row.required(\"phoneCount\", Long.class)"), source);
-        assertTrue(source.contains("row.required(\"tagCount\", Long.class)"), source);
+        assertThat(source, containsString("Optional<JdbcClient.RowMapper<Contact>> contactRowMapper"));
+        assertThat(source, containsString("DEFAULT_CONTACT_ROW_MAPPER = row -> new Contact"));
+        assertThat(source, containsString(".map(contactRowMapper).list()"));
+        assertThat(source, containsString(".map(contactRowMapper).optional()"));
+        assertThat(source, containsString("ContactNameMapper contactNameMapper"));
+        assertThat(source, containsString("ContactSummaryMapper contactSummaryMapper"));
+        assertThat(source, containsString("JdbcClient.RowMapper<ContactName> contactNameMapper"));
+        assertThat(source, containsString("JdbcClient.RowMapper<ContactName> contactSummaryMapper"));
+        assertThat(source, containsString("JdbcClient.RowMapper<ContactPhone> contactPhoneRowMapper"));
+        assertThat(source, not(containsString("new ContactNameMapper()")));
+        assertThat(source, not(containsString("new ContactSummaryMapper()")));
+        assertThat(source, containsString(".map(contactNameMapper).one()"));
+        assertThat(source, containsString(".map(contactSummaryMapper).one()"));
+        assertThat(source, containsString(".map(contactPhoneRowMapper).one()"));
+        assertThat(source, containsString(".map(String.class).list()"));
+        assertThat(source, containsString(".map(contactDetailRowMapper).list()"));
+        assertThat(source, containsString(".map(contactCardRowMapper).list()"));
+        assertThat(source, containsString(".reduce(new Reducer_ListGraphs())"));
+        assertThat(source, containsString(".reduce(new CustomContactGraphReducer())"));
+        assertThat(source, containsString(".reduce(new ContactRowReducer())"));
+        assertThat(source, containsString("LinkedHashMap<Long, RootAccumulator> rootsByIdentity"));
+        assertThat(source, containsString("LinkedHashMap<Long, PhonesAccumulator> phonesByIdentity"));
+        assertThat(source, containsString("LinkedHashMap<Long, Phones_TagsAccumulator> tagsByIdentity"));
+        assertThat(source, containsString("new ContactGraph(id, name, List.copyOf(phonesValues))"));
+        assertThat(source, containsString("new PhoneGraph(id, type, phone, List.copyOf(tagsValues))"));
+        assertThat(source, containsString("new TagGraph(id, name)"));
+        assertThat(source, containsString("row.optional(\"phones.id\", Long.class).orElse(null)"));
+        assertThat(source, containsString("row.optional(\"phones.tags.id\", Long.class).orElse(null)"));
+        assertThat(source, containsString("if (phonesIdValue == null)"));
+        assertThat(source, containsString("Graph scope 'phones.tags' has an identity while ancestor scope 'phones' is absent"));
+        assertThat(source, containsString("Conflicting projected value for graph scope 'phones' property 'phone'"));
+        assertThat(source, containsString("row.required(\"phoneCount\", Long.class)"));
+        assertThat(source, containsString("row.required(\"tagCount\", Long.class)"));
     }
 
     @Test
     void generatedSourceUsesDirectPublicClientCalls() throws Exception {
         String source = generatedRepository();
 
-        assertTrue(source.contains("private final JdbcClient jdbcClient"), source);
-        assertTrue(source.contains("jdbcClient.create(SQL_LIST_CONTACTS)"), source);
-        assertTrue(source.contains("@Service.Named(\"contacts\") @Data.ProviderType(\"jdbc\")"), source);
-        assertFalse(source.contains("ResultSet"), source);
-        assertFalse(source.contains("Class.forName"), source);
-        assertFalse(source.contains("JdbcRunner"), source);
+        assertThat(source, containsString("private final JdbcClient jdbcClient"));
+        assertThat(source, containsString("jdbcClient.create(SQL_LIST_CONTACTS)"));
+        assertThat(source, containsString("@Service.Named(\"contacts\") @Data.ProviderType(\"jdbc\")"));
+        assertThat(source, not(containsString("ResultSet")));
+        assertThat(source, not(containsString("Class.forName")));
+        assertThat(source, not(containsString("JdbcRunner")));
+    }
+
+    @Test
+    void generatedServiceDescriptorPreservesMapperTypes() throws Exception {
+        String descriptor = Files.readString(Path.of(
+                "target/generated-sources/annotations/io/helidon/examples/declarative/data/jdbc/mapping/model/"
+                        + "ContactRepository__Jdbc__ServiceDescriptor.java"));
+
+        assertThat(descriptor,
+                   containsString("GenericType<Optional<JdbcClient.RowMapper<Contact>>>"));
+        assertThat(descriptor, containsString("GenericType<JdbcClient.RowMapper<ContactPhone>>"));
+        assertThat(descriptor, containsString("GenericType<ContactNameMapper>"));
+        assertThat(descriptor, containsString("GenericType<ContactSummaryMapper>"));
     }
 
     @Test
     void flatProjectionPreservesNullOuterJoinChildren() {
         ContactDetail detail = new ContactDetail(1L, "Govind", null, null, null, null, null);
 
-        assertEquals(1L, detail.contactId());
-        assertNull(detail.phoneId());
-        assertNull(detail.tagId());
+        assertThat(detail.contactId(), is(1L));
+        assertThat(detail.phoneId(), nullValue());
+        assertThat(detail.tagId(), nullValue());
     }
 
     @Test
     void graphModelRetainsOrderedChildren() {
-        ContactGraph contact = new ContactGraph();
-        contact.setId(1L);
-        contact.setName("Govind");
+        TagGraph tag = new TagGraph(1001L, "primary");
+        PhoneGraph phone = new PhoneGraph(101L, "mobile", "+91-0101", List.of(tag));
+        ContactGraph contact = new ContactGraph(1L, "Govind", List.of(phone));
 
-        PhoneGraph phone = new PhoneGraph();
-        phone.setId(101L);
-        TagGraph tag = new TagGraph();
-        tag.setId(1001L);
-        tag.setName("primary");
-        phone.setTags(List.of(tag));
-        contact.setPhones(List.of(phone));
-
-        assertEquals(List.of(101L), contact.getPhones().stream().map(PhoneGraph::getId).toList());
-        assertEquals("primary", contact.getPhones().getFirst().getTags().getFirst().getName());
+        assertThat(contact.phones().stream().map(PhoneGraph::id).toList(), is(List.of(101L)));
+        assertThat(contact.phones().getFirst().tags().getFirst().name(), is("primary"));
     }
 
     @Test
     void recordAndAggregateMappingsExposeExpectedValues() {
-        assertEquals(new Contact(1L, "Govind"), new Contact(1L, "Govind"));
-        assertEquals(2L, new ContactCard(1L, "Govind", "+91-0101", 2, 3).phoneCount());
+        assertThat(new Contact(1L, "Govind"), is(new Contact(1L, "Govind")));
+        assertThat(new ContactName(1L, "GOVIND"), is(new ContactName(1L, "GOVIND")));
+        assertThat(new ContactPhone(1L, "Govind", "mobile: +91-0101"),
+                   is(new ContactPhone(1L, "Govind", "mobile: +91-0101")));
+        assertThat(new ContactCard(1L, "Govind", "+91-0101", 2, 3).phoneCount(), is(2L));
+    }
+
+    @Test
+    void exactMapperRenamesAndFormatsContactColumns() {
+        ContactName mapped = new ContactNameMapper().map(row(Map.of("id", 1L, "name", "Govind")));
+
+        assertThat(mapped, is(new ContactName(1L, "GOVIND")));
+    }
+
+    @Test
+    void exactMapperSelectionSupportsDifferentInterpretationsOfOneResultType() {
+        ContactName mapped = new ContactSummaryMapper().map(row(Map.of("id", 1L,
+                                                                      "name", "Govind",
+                                                                      "phoneCount", 2L,
+                                                                      "tagCount", 3L)));
+
+        assertThat(mapped, is(new ContactName(1L, "Govind (2 phones, 3 tags)")));
+    }
+
+    @Test
+    void genericMapperBuildsApplicationSpecificPhoneLabel() {
+        ContactPhone mapped = new ContactPhoneMapper().map(row(Map.of("contactId", 1L,
+                                                                       "contactName", "Govind",
+                                                                       "phoneType", "mobile",
+                                                                       "phoneNumber", "+91-0101")));
+
+        assertThat(mapped, is(new ContactPhone(1L, "Govind", "mobile: +91-0101")));
     }
 
     @Test
@@ -121,12 +179,12 @@ class MappingExampleTest {
         reducer.accept(row(Map.of("id", 1L, "name", "Govind")));
         reducer.accept(row(Map.of("id", 2L, "name", "Krishna")));
 
-        assertEquals(List.of(new Contact(2L, "Krishna"), new Contact(1L, "Govind")), reducer.finish());
+        assertThat(reducer.finish(), is(List.of(new Contact(2L, "Krishna"), new Contact(1L, "Govind"))));
     }
 
     @Test
-    void explicitGraphReducerCreatesImmutableGraphWithCompositePhoneIdentity() {
-        ImmutableContactGraphReducer reducer = new ImmutableContactGraphReducer();
+    void explicitGraphReducerCreatesCustomRecordGraphWithCompositePhoneIdentity() {
+        CustomContactGraphReducer reducer = new CustomContactGraphReducer();
 
         reducer.accept(row("contactId", 2L,
                            "contactName", "Krishna",
@@ -171,13 +229,13 @@ class MappingExampleTest {
                            "tagId", null,
                            "tagName", null));
 
-        List<ImmutableContactGraph> contacts = reducer.finish();
-        assertEquals(List.of(2L, 1L, 3L), contacts.stream().map(ImmutableContactGraph::id).toList());
-        assertEquals(List.of("mobile", "office"),
-                     contacts.get(1).phones().stream().map(phone -> phone.type()).toList());
-        assertEquals(List.of("primary", "sms"),
-                     contacts.get(1).phones().getFirst().tags().stream().map(tag -> tag.name()).toList());
-        assertTrue(contacts.get(2).phones().isEmpty());
+        List<CustomContactGraph> contacts = reducer.finish();
+        assertThat(contacts.stream().map(CustomContactGraph::id).toList(), is(List.of(2L, 1L, 3L)));
+        assertThat(contacts.get(1).phones().stream().map(phone -> phone.type()).toList(),
+                   is(List.of("mobile", "office")));
+        assertThat(contacts.get(1).phones().getFirst().tags().stream().map(tag -> tag.name()).toList(),
+                   is(List.of("primary", "sms")));
+        assertThat(contacts.get(2).phones().isEmpty(), is(true));
         assertThrows(UnsupportedOperationException.class, () -> contacts.add(contacts.getFirst()));
         assertThrows(UnsupportedOperationException.class,
                      () -> contacts.get(1).phones().add(contacts.get(1).phones().getFirst()));
@@ -185,7 +243,7 @@ class MappingExampleTest {
 
     @Test
     void explicitGraphReducerRejectsIncompleteOrConflictingRows() {
-        ImmutableContactGraphReducer incompletePhone = new ImmutableContactGraphReducer();
+        CustomContactGraphReducer incompletePhone = new CustomContactGraphReducer();
         assertThrows(DataException.class,
                      () -> incompletePhone.accept(row("contactId", 1L,
                                                       "contactName", "Govind",
@@ -195,7 +253,7 @@ class MappingExampleTest {
                                                       "tagId", null,
                                                       "tagName", null)));
 
-        ImmutableContactGraphReducer orphanTag = new ImmutableContactGraphReducer();
+        CustomContactGraphReducer orphanTag = new CustomContactGraphReducer();
         assertThrows(DataException.class,
                      () -> orphanTag.accept(row("contactId", 1L,
                                                 "contactName", "Govind",
@@ -205,7 +263,7 @@ class MappingExampleTest {
                                                 "tagId", 1001L,
                                                 "tagName", "primary")));
 
-        ImmutableContactGraphReducer conflictingRoot = new ImmutableContactGraphReducer();
+        CustomContactGraphReducer conflictingRoot = new CustomContactGraphReducer();
         conflictingRoot.accept(row("contactId", 1L,
                                    "contactName", "Govind",
                                    "phoneId", null,
@@ -227,13 +285,13 @@ class MappingExampleTest {
         Map<String, Object> copy = new HashMap<>(values);
         return new JdbcClient.Row() {
             @Override
-            public <T> T get(int index, Class<T> type) {
+            public <T> Optional<T> optional(int index, Class<T> type) {
                 throw new UnsupportedOperationException("The sample reducer uses column labels");
             }
 
             @Override
-            public <T> T get(String label, Class<T> type) {
-                return type.cast(copy.get(label));
+            public <T> Optional<T> optional(String label, Class<T> type) {
+                return Optional.ofNullable(type.cast(copy.get(label)));
             }
 
             @Override
@@ -243,11 +301,8 @@ class MappingExampleTest {
 
             @Override
             public <T> T required(String label, Class<T> type) {
-                T value = get(label, type);
-                if (value == null) {
-                    throw new IllegalStateException("Missing sample value: " + label);
-                }
-                return value;
+                return optional(label, type)
+                        .orElseThrow(() -> new IllegalStateException("Missing sample value: " + label));
             }
         };
     }

@@ -35,12 +35,8 @@ class PokemonExampleTest {
     void generatedSourceUsesAllQueryTerminals() throws Exception {
         String source = generatedRepository();
 
-        assertTrue(source.contains(".map(MAPPER_LIST_ORDER_BY_NAME).list()"), source);
-        assertTrue(source.contains(".map(MAPPER_LIST_BY_TYPE_NAME).list()"), source);
-        assertTrue(source.contains(".map(MAPPER_FIND_BY_NAME).optional()"), source);
-        assertTrue(source.contains(".map(MAPPER_FIND_BY_ID).optional()"), source);
-        assertTrue(source.contains(".map(MAPPER_PAGE_ORDER_BY_ID).list()"), source);
-        assertTrue(source.contains(".map(MAPPER_SLICE_AFTER_ID).list()"), source);
+        assertTrue(source.contains(".map(pokemonRowRowMapper).list()"), source);
+        assertTrue(source.contains(".map(pokemonRowRowMapper).optional()"), source);
         assertTrue(source.contains("jdbcClient.create(SQL_COUNT).map(long.class).one()"), source);
     }
 
@@ -51,7 +47,7 @@ class PokemonExampleTest {
         assertTrue(source.contains(".generatedKeys(row -> row.required(1, Integer.class)).one()"), source);
         assertTrue(source.contains("jdbcClient.create(SQL_DELETE_BY_ID)"), source);
         assertTrue(source.contains(".execute();"), source);
-        assertTrue(source.contains("JDBCType.VARCHAR"), source);
+        assertTrue(source.contains(".bind(1, typeName).map(pokemonRowRowMapper).list()"), source);
         assertTrue(source.contains("LIMIT ? OFFSET ?"), source);
         assertFalse(source.contains("PageRequest"), source);
         assertFalse(source.contains("GenericRepository"), source);

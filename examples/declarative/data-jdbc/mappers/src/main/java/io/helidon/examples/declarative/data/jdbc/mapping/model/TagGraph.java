@@ -18,36 +18,11 @@ package io.helidon.examples.declarative.data.jdbc.mapping.model;
 import io.helidon.json.binding.Json;
 
 /**
- * Mutable tag node used by the generated graph reducer.
+ * Tag record node constructed by the generated identity reducer.
+ *
+ * @param id   tag identifier
+ * @param name tag name
  */
 @Json.Entity
-public class TagGraph {
-    private Long id;
-    private String name;
-
-    /**
-     * Creates an empty tag node for generated bean mapping.
-     */
-    public TagGraph() {
-    }
-
-    /** @return tag identifier */
-    public Long getId() {
-        return id;
-    }
-
-    /** @param id tag identifier */
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    /** @return tag name */
-    public String getName() {
-        return name;
-    }
-
-    /** @param name tag name */
-    public void setName(String name) {
-        this.name = name;
-    }
+public record TagGraph(Long id, String name) {
 }

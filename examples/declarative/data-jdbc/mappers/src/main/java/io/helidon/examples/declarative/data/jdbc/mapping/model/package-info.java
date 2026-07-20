@@ -16,8 +16,7 @@
 /**
  * Repository, projection, mapper, and reducer types for the declarative JDBC mapping example.
  * <p>
- * Record projections demonstrate generated per-row mapping. Mutable graph beans demonstrate generated reduction from
- * identity-bearing mapping declarations. Application mapper and reducer classes demonstrate the explicit extension
- * points without exposing JDBC resources.
+ * Record projections demonstrate generated per-row mapping and generated reduction from explicit identity paths.
+ * Application mapper and reducer classes demonstrate the explicit extension points without exposing JDBC resources.
  */
 package io.helidon.examples.declarative.data.jdbc.mapping.model;

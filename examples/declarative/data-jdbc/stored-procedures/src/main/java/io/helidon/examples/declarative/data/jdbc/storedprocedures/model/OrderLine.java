@@ -1,0 +1,39 @@
+/*
+ * Copyright (c) 2026 Oracle and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.helidon.examples.declarative.data.jdbc.storedprocedures.model;
+
+import java.math.BigDecimal;
+
+import io.helidon.common.Api;
+import io.helidon.json.binding.Json;
+
+/**
+ * One order line returned by the direct result set produced by MySQL.
+ *
+ * @param lineId line identifier
+ * @param sku product identifier
+ * @param quantity requested quantity
+ * @param unitPrice price for one item
+ * @param lineTotal quantity multiplied by unit price
+ */
+@SuppressWarnings(Api.SUPPRESS_PREVIEW)
+@Json.Entity
+public record OrderLine(long lineId,
+                        String sku,
+                        int quantity,
+                        BigDecimal unitPrice,
+                        BigDecimal lineTotal) {
+}
