@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
 
-    Copyright (c) 2025, 2026 Oracle and/or its affiliates.
+    Copyright (c) 2026 Oracle and/or its affiliates.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -22,31 +22,20 @@
                              https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>io.helidon.examples</groupId>
-        <artifactId>helidon-examples-project</artifactId>
+        <groupId>io.helidon.examples.imperative</groupId>
+        <artifactId>helidon-examples-imperative-project</artifactId>
         <version>1.0.0-SNAPSHOT</version>
     </parent>
 
-    <groupId>io.helidon.examples.declarative</groupId>
-    <artifactId>helidon-examples-declarative-project</artifactId>
+    <artifactId>helidon-examples-imperative-data-jdbc-project</artifactId>
 
     <packaging>pom</packaging>
-    <name>Helidon Examples Declarative Project</name>
-    <description>Examples for Helidon SE declarative programming model</description>
+    <name>Helidon Examples Imperative Data JDBC Project</name>
+    <description>Imperative Helidon Data JDBC examples</description>
 
     <modules>
-        <module>webserver</module>
-        <module>scheduling</module>
-        <module>fault-tolerance</module>
-        <module>metrics</module>
-        <module>tracing</module>
-        <module>validation</module>
-        <module>data</module>
-        <module>data-jdbc</module>
-        <module>security</module>
-        <module>health</module>
-        <module>cors</module>
-        <module>websocket</module>
-        <module>webclient</module>
+        <module>pokemon</module>
+        <module>mappers</module>
+        <module>streaming</module>
     </modules>
 </project>

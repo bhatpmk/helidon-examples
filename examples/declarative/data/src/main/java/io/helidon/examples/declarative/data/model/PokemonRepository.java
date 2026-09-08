@@ -30,6 +30,11 @@ import io.helidon.data.Data;
  * @see Data.CrudRepository
  * @see Pokemon
  */
+
+// There is no @Data.Provider supplied here. The pom.xml puts helidon-data-jakarta-persistence-codegen on the annotation processor path,
+// so the Jakarta generator is the provider generating the implementation.
+// @Data.Provider absent -> Jakarta codegen defaults to its own provider "jakarta" -> generates PokemonRepository__Jpa -> runtime reads
+// data.persistence-units.jakarta -> creates Jakarta EntityManagerFactory backed by EclipseLink.
 @Data.Repository
 public interface PokemonRepository extends Data.CrudRepository<Pokemon, Integer> {
 
